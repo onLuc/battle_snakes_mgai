@@ -10,10 +10,13 @@
 # To get you started we've included code to prevent your Battlesnake from moving backwards.
 # For more info see docs.battlesnake.com
 
+
 import random
 import typing
 from typing import AnyStr
+from MCTS import mcts_move
 
+SNAKE_TACTIC = "MCTS"
 
 # info is called when you create your Battlesnake on play.battlesnake.com
 # and controls your Battlesnake's appearance
@@ -118,6 +121,8 @@ def move(game_state: typing.Dict) -> typing.Dict:
     # Choose a random move from the safe ones
     print(f"Safe moves {safe_moves}")
     next_move = random.choice(safe_moves)
+    if SNAKE_TACTIC == "MCTS":
+        next_move = mcts_move(game_state)
 
     # TODO: Step 4 - Move towards food instead of random, to regain health and survive longer
     # food = game_state['board']['food']
