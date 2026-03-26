@@ -17,6 +17,7 @@ class State:
         self.food = copy.deepcopy(game_state["board"]["food"])
         self.board_width = game_state["board"]["width"]
         self.board_height = game_state["board"]["height"]
+        self.health = 100
 
     def copy(self):
         return copy.deepcopy(self)
@@ -83,27 +84,69 @@ def get_legal_moves_state(state: State)  -> list[AnyStr]:
     return safe_moves
 
 
-def next_state(state, move):
-    new_state = state.copy()
+def next_state(state, sim_move):
+    new_state = copy.deepcopy(state)
 
+    # --- MOVE ALL SNAKES ---
+    for snake in new_state.snakes:
+
+        possible_moves = ["up", "down", "left", "right"]
+        # Simulate the other snakes randomly TODO: If heuristic other snakes, use here
+        move = random.choice(possible_moves)
+        # If the snake is our own, do the given simulated move; sim_move
+        if snake == new_state.you:
+            move = sim_move
+
+        head = snake[0]
+
+        if move == "up":
+            new_head = {"x": head["x"], "y": head["y"] + 1}
+        elif move == "down":
+            new_head = {"x": head["x"], "y": head["y"] - 1}
+        elif move == "left":
+            new_head = {"x": head["x"] - 1, "y": head["y"]}
+        else:
+            new_head = {"x": head["x"] + 1, "y": head["y"]}
+
+        snake.insert(0, new_head)
+
+        # --- FOOD ---
+        ate_food = False
+        for food in new_state.food:
+            if food["x"] == new_head["x"] and food["y"] == new_head["y"]:
+                ate_food = True
+                new_state.food.remove(food)
+                new_state.health = 100
+                break
+
+        if not ate_food:
+            snake.pop()
+            if snake == new_state.you:
+                new_state.health -= 1
+
+    # --- COLLISIONS ---
     head = new_state.you[0]
 
-    if move == "up":
-        new_head = {"x": head["x"], "y": head["y"] + 1}
-    elif move == "down":
-        new_head = {"x": head["x"], "y": head["y"] - 1}
-    elif move == "left":
-        new_head = {"x": head["x"] - 1, "y": head["y"]}
-    else:
-        new_head = {"x": head["x"] + 1, "y": head["y"]}
+    # wall collision
+    if head["x"] < 0 or head["x"] >= new_state.board_width:
+        new_state.is_dead = True
+    if head["y"] < 0 or head["y"] >= new_state.board_height:
+        new_state.is_dead = True
 
-    # TODO:
-    # - handle food (grow if needed)
-    # - handle collisions
-    # - move other snakes (random or heuristic)
+    # self collision
+    if head in new_state.you[1:]:
+        new_state.is_dead = True
 
-    new_state.you.insert(0, new_head)
-    new_state.you.pop()
+    # collision with other snakes
+    for snake in new_state.snakes:
+        if snake == new_state.you:
+            continue
+        if head in snake:
+            new_state.is_dead = True
+
+    # starvation
+    if new_state.health <= 0:
+        new_state.is_dead = True
 
     return new_state
 
@@ -123,7 +166,7 @@ def get_reward(state: State):
     # -1 = dead
     if state.is_dead:
         return -1
-    return 1
+    return len(state.you)
 
 
 # =========================
@@ -137,11 +180,12 @@ class Node:
         self.move = move
 
         self.children = []
+        self.untried_moves = get_legal_moves_state(state)
         self.visits = 0
         self.value = 0
 
     def is_fully_expanded(self):
-        # TODO: check if all moves explored
+        # TODO: check if all moves explored (niet gewoon visits == children +1?)
         return False
 
 
@@ -168,23 +212,11 @@ def ucb_score(child, C=1.4):
 
 
 def expand(node):
-    """
-    Expand one unexplored move
-    """
-    moves = get_legal_moves_state(node.state)
-
-    # TODO:
-    # pick a move that is NOT already in node.children
-    tried_moves = [child.move for child in node.children]
-
-    for move in moves:
-        if move not in tried_moves:
-            new_state = next_state(node.state, move)
-            child = Node(new_state, parent=node, move=move)
-            node.children.append(child)
-            return child
-
-    return node  # fallback
+    move = node.untried_moves.pop()
+    new_state = next_state(node.state, move)
+    child = Node(new_state, parent=node, move=move)
+    node.children.append(child)
+    return child
 
 
 def simulate(state: State):
