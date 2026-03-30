@@ -8,15 +8,18 @@ from typing import AnyStr
 # STATE REPRESENTATION
 # =========================
 
+# board: https://docs.battlesnake.com/api/objects/board
+# body:  https://docs.battlesnake.com/api/objects/battlesnake
+# game:  https://docs.battlesnake.com/api/objects/game
 class State:
     def __init__(self, game_state):
         self.is_dead = False
-        self.you = copy.deepcopy(game_state["you"]["body"])
-        self.snakes = [copy.deepcopy(s["body"]) for s in game_state["board"]["snakes"]]
-        self.hazards = game_state['board']['hazards']
-        self.food = copy.deepcopy(game_state["board"]["food"])
-        self.board_width = game_state["board"]["width"]
-        self.board_height = game_state["board"]["height"]
+        self.you = copy.deepcopy(game_state["you"]["body"]) # list of dicts with items x: int,y: int.
+        self.snakes = [copy.deepcopy(s["body"]) for s in game_state["board"]["snakes"]] # list of dicts with items id: string.
+        self.hazards = game_state['board']['hazards'] # list of dicts with items x: int,y: int.
+        self.food = copy.deepcopy(game_state["board"]["food"]) # list of dicts with items x: int,y: int.
+        self.board_width = game_state["board"]["width"] # int
+        self.board_height = game_state["board"]["height"] # int
         self.health = 100
 
     def copy(self):
@@ -185,8 +188,7 @@ class Node:
         self.value = 0
 
     def is_fully_expanded(self):
-        # TODO: check if all moves explored (niet gewoon visits == children +1?)
-        return False
+        return len(self.untried_moves) == 0
 
 
 # =========================
@@ -206,9 +208,7 @@ def ucb_score(child, C=1.4):
     if child.visits == 0:
         return float("inf")
 
-    return (child.value / child.visits) + C * math.sqrt(
-        math.log(child.parent.visits) / child.visits
-    )
+    return (child.value / child.visits) + C * math.sqrt(math.log(child.parent.visits) / child.visits)
 
 
 def expand(node):
@@ -254,7 +254,7 @@ def backpropagate(node, reward):
 def mcts(root_state, iterations=200):
     root = Node(root_state)
 
-    for _ in range(iterations):
+    for _ in range(iterations): # should make this into while < 1 sec
 
         # 1. Selection
         node = select(root)
