@@ -27,50 +27,6 @@ class State:
 
 
 # =========================
-# MCTS NODE
-# =========================
-
-class Node:
-    def __init__(self, state, parent=None, move=None):
-        self.state = state
-        self.parent = parent
-        self.move = move
-
-        self.children = []
-        self.untried_moves = get_legal_moves_state(state)
-        self.visits = 0
-        self.value = 0
-
-    def is_fully_expanded(self):
-        return len(self.untried_moves) == 0
-
-    def expand(self):
-        '''
-        Picks random move to expand if no node after parent has been explored
-        '''
-        random_index = random.randrange(len(self.untried_moves))
-        move = self.untried_moves.pop(random_index)
-        new_state = next_state(self.state, move)
-        child = Node(new_state, parent=self, move=move)
-        self.children.append(child)
-        return child
-
-    def uct(self):
-        # Finds max option, given that the node is not fully expanded yet
-        # Also makes sure there is no division by 0 (= inf)
-        options = []
-        for child in self.children:
-            # if child.visits == 0:
-            #     return child
-            ucb = (child.value/child.visits) + math.sqrt(2) * math.sqrt(math.log(self.visits) / child.visits)
-            options.append((child, ucb))
-
-        # Returns random action if >1 child nodes share same max value
-        max_ucb = max(options, key=lambda x: x[1])[1]
-        best = [opt for opt in options if opt[1] == max_ucb]
-        return random.choice(best)[0]
-
-# =========================
 # GAME LOGIC (SIMULATION)
 # =========================
 
@@ -152,7 +108,7 @@ def next_state(state, sim_move):
             new_head = {"x": head["x"], "y": head["y"] - 1}
         elif move == "left":
             new_head = {"x": head["x"] - 1, "y": head["y"]}
-        elif move == "right":
+        else:
             new_head = {"x": head["x"] + 1, "y": head["y"]}
 
         snake.insert(0, new_head)
@@ -218,9 +174,50 @@ def get_reward(state: State):
 
 
 # =========================
+# MCTS NODE
+# =========================
+
+class Node:
+    def __init__(self, state, parent=None, move=None):
+        self.state = state
+        self.parent = parent
+        self.move = move
+
+        self.children = []
+        self.untried_moves = get_legal_moves_state(state)
+        self.visits = 0
+        self.value = 0
+
+    def is_fully_expanded(self):
+        return len(self.untried_moves) == 0
+
+
+# =========================
 # MCTS CORE
 # =========================
 
+def select(node):
+    """
+    Selection step using UCB1
+    """
+    while node.children:
+        node = max(node.children, key=ucb_score)
+    return node
+
+
+def ucb_score(child, C=1.4):
+    if child.visits == 0:
+        return float("inf")
+
+    return (child.value / child.visits) + C * math.sqrt(math.log(child.parent.visits) / child.visits)
+
+
+def expand(node):
+    move = node.untried_moves.pop()
+    new_state = next_state(node.state, move)
+    child = Node(new_state, parent=node, move=move)
+    node.children.append(child)
+    return child
 
 
 def simulate(state: State):
@@ -255,20 +252,19 @@ def backpropagate(node, reward):
         node = node.parent
 
 
-def mcts(root_state, iterations=2000):
+def mcts(root_state, iterations=200):
     root = Node(root_state)
 
     for _ in range(iterations): # should make this into while < 1 sec
-        node = root
+
         # 1. Selection
-        # aka selecting child of highest uct, given that each node is fully expanded
-        while node.is_fully_expanded() and node.children:
-            node = node.uct()
+        # aka selecting child of highest uct
+        node = select(root)
 
         # 2. Expansion
-        # The node we have arrived at, has untried moves which we want to expand, the overwritten node is a random child
+        # For
         if not is_terminal(node.state):
-            node = node.expand()
+            node = expand(node)
 
         # 3. Simulation (rollout)
         reward = simulate(node.state)
