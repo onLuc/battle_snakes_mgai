@@ -1,6 +1,7 @@
 import random
 import copy
 import math
+import time
 import typing
 from typing import AnyStr
 
@@ -14,8 +15,11 @@ from typing import AnyStr
 class State:
     def __init__(self, game_state):
         self.is_dead = False
-        self.you = copy.deepcopy(game_state["you"]["body"]) # list of dicts with items x: int,y: int.
+        # self.you = copy.deepcopy(game_state["you"]["body"]) # list of dicts with items x: int,y: int.
+        your_id = game_state["you"]["id"]
+        self.you_index = next(i for i, s in enumerate(game_state["board"]["snakes"]) if s["id"] == your_id)
         self.snakes = [copy.deepcopy(s["body"]) for s in game_state["board"]["snakes"]] # list of dicts with items id: string.
+        self.you = self.snakes[self.you_index]
         self.hazards = game_state['board']['hazards'] # list of dicts with items x: int,y: int.
         self.food = copy.deepcopy(game_state["board"]["food"]) # list of dicts with items x: int,y: int.
         self.board_width = game_state["board"]["width"] # int
@@ -60,9 +64,10 @@ class Node:
         # Also makes sure there is no division by 0 (= inf)
         options = []
         for child in self.children:
-            # if child.visits == 0:
-            #     return child
-            ucb = (child.value/child.visits) + math.sqrt(2) * math.sqrt(math.log(self.visits) / child.visits)
+            if child.visits == 0:
+                ucb = float("inf")
+            else:
+                ucb = (child.value / child.visits) + 1.4 * math.sqrt(math.log(self.visits+1) / child.visits)
             options.append((child, ucb))
 
         # Returns random action if >1 child nodes share same max value
@@ -83,9 +88,9 @@ def get_legal_moves_state(state: State)  -> list[AnyStr]:
         is_move_safe["left"] = False
     elif my_neck["x"] > my_head["x"]:  # Neck is right of head, don't move right
         is_move_safe["right"] = False
-    elif my_neck["y"] < my_head["y"]:  # Neck is below head, don't move down
+    elif my_neck["y"] > my_head["y"]:  # Neck is below head, don't move down
         is_move_safe["down"] = False
-    elif my_neck["y"] > my_head["y"]:  # Neck is above head, don't move up
+    elif my_neck["y"] < my_head["y"]:  # Neck is above head, don't move up
         is_move_safe["up"] = False
 
     # Prevent your Battlesnake from moving out of bounds
@@ -132,20 +137,21 @@ def get_legal_moves_state(state: State)  -> list[AnyStr]:
 
 
 def next_state(state, sim_move):
-    new_state = copy.deepcopy(state)
+    new_state = state.copy()
 
+    # new_heads = {}
     # --- MOVE ALL SNAKES ---
-    for snake in new_state.snakes:
-
-        possible_moves = ["up", "down", "left", "right"]
-        # Simulate the other snakes randomly TODO: If heuristic other snakes, use here
-        move = random.choice(possible_moves)
+    for i, snake in enumerate(new_state.snakes):
         # If the snake is our own, do the given simulated move; sim_move
-        if snake == new_state.you:
+        if i == new_state.you_index:
             move = sim_move
+            # after mutation:
+            new_state.you = new_state.snakes[i]
+        else:
+            # TODO: If heuristic other snakes, use here. Also, snakes can make illegal moves now
+            move = random.choice(["up", "down", "left", "right"])
 
         head = snake[0]
-
         if move == "up":
             new_head = {"x": head["x"], "y": head["y"] + 1}
         elif move == "down":
@@ -156,19 +162,23 @@ def next_state(state, sim_move):
             new_head = {"x": head["x"] + 1, "y": head["y"]}
 
         snake.insert(0, new_head)
+        # new_heads[i] = new_head
 
         # --- FOOD ---
+    for i, snake in enumerate(new_state.snakes):
+        new_head = snake[0]
+
         ate_food = False
-        for food in new_state.food:
-            if food["x"] == new_head["x"] and food["y"] == new_head["y"]:
+        for f in new_state.food[:]:
+            if f["x"] == new_head["x"] and f["y"] == new_head["y"]:
+                new_state.food.remove(f)
                 ate_food = True
-                new_state.food.remove(food)
-                new_state.health = 100
-                break
+                if i == new_state.you_index:
+                    new_state.health = 100
 
         if not ate_food:
-            snake.pop()
-            if snake == new_state.you:
+            snake.pop()  # Tail moves forward
+            if i == new_state.you_index:
                 new_state.health -= 1
 
     # --- COLLISIONS ---
@@ -207,27 +217,23 @@ def is_terminal(state: State):
     return state.is_dead
 
 
-def get_reward(state: State):
-    # TODO:
-    # simplest:
-    # +1 = alive
-    # -1 = dead
+def get_reward(state: State, turns_survived: int):
     if state.is_dead:
-        return -1
-    return len(state.you)
+        return turns_survived * 0.1  # Small reward for surviving longer
 
+    # Large reward for being alive + length + health bonus
+    return 100 + (len(state.you) * 10) + state.health
 
 # =========================
 # MCTS CORE
 # =========================
-
-
 
 def simulate(state: State):
     """
     Rollout (play randomly until terminal)
     """
     rollout_state = state.copy()
+    turns = 0
 
     # TODO: limit rollout depth (important!)
     for _ in range(20):
@@ -241,8 +247,9 @@ def simulate(state: State):
 
         move = random.choice(moves)
         rollout_state = next_state(rollout_state, move)
+        turns += 1
 
-    return get_reward(rollout_state)
+    return get_reward(rollout_state, turns)
 
 
 def backpropagate(node, reward):
@@ -255,10 +262,11 @@ def backpropagate(node, reward):
         node = node.parent
 
 
-def mcts(root_state, iterations=2000):
+def mcts(root_state, deadline=.9):
     root = Node(root_state)
 
-    for _ in range(iterations): # should make this into while < 1 sec
+    deadline = time.time() + deadline
+    while time.time() < deadline:
         node = root
         # 1. Selection
         # aka selecting child of highest uct, given that each node is fully expanded
@@ -267,7 +275,7 @@ def mcts(root_state, iterations=2000):
 
         # 2. Expansion
         # The node we have arrived at, has untried moves which we want to expand, the overwritten node is a random child
-        if not is_terminal(node.state):
+        if not node.is_fully_expanded() and not is_terminal(node.state):
             node = node.expand()
 
         # 3. Simulation (rollout)
@@ -277,6 +285,8 @@ def mcts(root_state, iterations=2000):
         backpropagate(node, reward)
 
     # Choose best move
+    if not root.children:
+        return random.choice(get_legal_moves_state(root_state))
     best_child = max(root.children, key=lambda c: c.visits)
 
     return best_child.move

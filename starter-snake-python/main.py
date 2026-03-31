@@ -14,7 +14,7 @@
 import random
 import typing
 from typing import AnyStr
-from MCTS_old import mcts_move
+from MCTS import mcts_move
 
 SNAKE_TACTIC = "MCTS"
 
