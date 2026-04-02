@@ -214,6 +214,8 @@ def is_terminal(state: State):
     # - you died
     # - or game ended
     # (same thing?)
+    if len(state.snakes) == 1:
+        return True
     return state.is_dead
 
 
