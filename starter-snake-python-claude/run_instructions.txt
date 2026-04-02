@@ -1,0 +1,25 @@
+MCTS vs Random
+  Start the agents:
+
+  python mcts_main.py
+  PORT=8001 python random_main.py
+
+  Run the match:
+
+  MATCHUP=mcts_vs_random python run_game.py
+
+  Heuristic vs Random
+  Start the agents:
+
+  python heuristic_main.py
+  PORT=8001 python random_main.py
+
+  Run the match:
+
+  MATCHUP=heuristic_vs_random python run_game.py
+
+  Available matchups
+
+  - mcts_vs_heuristic
+  - mcts_vs_random
+  - heuristic_vs_random
