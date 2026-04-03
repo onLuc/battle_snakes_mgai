@@ -24,7 +24,7 @@ class State:
         self.food = copy.deepcopy(game_state["board"]["food"]) # list of dicts with items x: int,y: int.
         self.board_width = game_state["board"]["width"] # int
         self.board_height = game_state["board"]["height"] # int
-        self.health = 100
+        self.health = game_state["you"]["health"]
 
     def copy(self):
         return copy.deepcopy(self)
@@ -48,17 +48,6 @@ class Node:
     def is_fully_expanded(self):
         return len(self.untried_moves) == 0
 
-    def expand(self):
-        '''
-        Picks random move to expand if no node after parent has been explored
-        '''
-        random_index = random.randrange(len(self.untried_moves))
-        move = self.untried_moves.pop(random_index)
-        new_state = next_state(self.state, move)
-        child = Node(new_state, parent=self, move=move)
-        self.children.append(child)
-        return child
-
     def uct(self):
         # Finds max option, given that the node is not fully expanded yet
         # Also makes sure there is no division by 0 (= inf)
@@ -74,6 +63,10 @@ class Node:
         max_ucb = max(options, key=lambda x: x[1])[1]
         best = [opt for opt in options if opt[1] == max_ucb]
         return random.choice(best)[0]
+
+
+    def __repr__(self):
+        return self.move, self.value, self.visits
 
 # =========================
 # GAME LOGIC (SIMULATION)
@@ -138,7 +131,8 @@ def get_legal_moves_state(state: State)  -> list[AnyStr]:
 
 def next_state(state, sim_move):
     new_state = state.copy()
-
+    print(f"new state you_index: {new_state.you_index}")
+    print(f"new state you: {new_state.you}")
     # new_heads = {}
     # --- MOVE ALL SNAKES ---
     for i, snake in enumerate(new_state.snakes):
@@ -210,12 +204,15 @@ def next_state(state, sim_move):
 
 def is_terminal(state: State):
     # TODO:
+
     # return True if:
     # - you died
     # - or game ended
     # (same thing?)
-    if len(state.snakes) == 1:
-        return True
+    # This fucked it up, because it's a nested list
+    # if len(state.snakes)[0] == 1:
+    #     print(state.snakes)
+    #     return True
     return state.is_dead
 
 
@@ -230,6 +227,17 @@ def get_reward(state: State, turns_survived: int):
 # MCTS CORE
 # =========================
 
+def expand(node):
+    '''
+    Picks random move to expand if no node after parent has been explored
+    '''
+    random_index = random.randrange(len(node.untried_moves))
+    move = node.untried_moves.pop(random_index)
+    new_state = next_state(node.state, move)
+    child = Node(new_state, parent=node, move=move)
+    node.children.append(child)
+    return child
+
 def simulate(state: State):
     """
     Rollout (play randomly until terminal)
@@ -241,7 +249,6 @@ def simulate(state: State):
     for _ in range(20):
         if is_terminal(rollout_state):
             break
-
         moves = get_legal_moves_state(rollout_state)
         if not moves:
             rollout_state.is_dead = True
@@ -258,7 +265,8 @@ def backpropagate(node, reward):
     """
     Backpropagation step
     """
-    while node:
+    # print(node.parent)
+    while node.parent is not None:
         node.visits += 1
         node.value += reward
         node = node.parent
@@ -272,13 +280,20 @@ def mcts(root_state, deadline=.9):
         node = root
         # 1. Selection
         # aka selecting child of highest uct, given that each node is fully expanded
+        a = 0
         while node.is_fully_expanded() and node.children:
+            a+=1
             node = node.uct()
+        # if a > 0:
+        #     print(a)
 
         # 2. Expansion
         # The node we have arrived at, has untried moves which we want to expand, the overwritten node is a random child
+        # print(node.is_fully_expanded(), is_terminal(node.state))
+        # print( "=============")
         if not node.is_fully_expanded() and not is_terminal(node.state):
-            node = node.expand()
+            # print("expanding")
+            node = expand(node)
 
         # 3. Simulation (rollout)
         reward = simulate(node.state)
