@@ -119,10 +119,11 @@ def move(game_state: typing.Dict) -> typing.Dict:
         return {"move": "down"}
 
     # Choose a random move from the safe ones
-    print(f"Safe moves {safe_moves}")
+    # print(f"Safe moves {safe_moves}")
     next_move = random.choice(safe_moves)
     if SNAKE_TACTIC == "MCTS":
         next_move = mcts_move(game_state)
+
 
     # TODO: Step 4 - Move towards food instead of random, to regain health and survive longer
     # food = game_state['board']['food']

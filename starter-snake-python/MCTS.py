@@ -2,6 +2,7 @@ import random
 import copy
 import math
 import time
+import numpy as np
 import typing
 from typing import AnyStr
 
@@ -35,11 +36,11 @@ class State:
 # =========================
 
 class Node:
-    def __init__(self, state, parent=None, move=None):
+    def __init__(self, state, parent=None, move=None, depth=0):
         self.state = state
         self.parent = parent
         self.move = move
-
+        self.depth = depth
         self.children = []
         self.untried_moves = get_legal_moves_state(state)
         self.visits = 0
@@ -65,8 +66,8 @@ class Node:
         return random.choice(best)[0]
 
 
-    def __repr__(self):
-        return self.move, self.value, self.visits
+    # def __repr__(self):
+    #     return self.move, self.value, self.visits
 
 # =========================
 # GAME LOGIC (SIMULATION)
@@ -81,9 +82,9 @@ def get_legal_moves_state(state: State)  -> list[AnyStr]:
         is_move_safe["left"] = False
     elif my_neck["x"] > my_head["x"]:  # Neck is right of head, don't move right
         is_move_safe["right"] = False
-    elif my_neck["y"] > my_head["y"]:  # Neck is below head, don't move down
+    elif my_neck["y"] < my_head["y"]:  # Neck is below head, don't move down
         is_move_safe["down"] = False
-    elif my_neck["y"] < my_head["y"]:  # Neck is above head, don't move up
+    elif my_neck["y"] > my_head["y"]:  # Neck is above head, don't move up
         is_move_safe["up"] = False
 
     # Prevent your Battlesnake from moving out of bounds
@@ -115,9 +116,9 @@ def get_legal_moves_state(state: State)  -> list[AnyStr]:
             is_move_safe["right"] = False
         elif hazard["x"] == my_head["x"] - 1 and hazard["y"] == my_head["y"]:
             is_move_safe["left"] = False
-        elif hazard["y"] + 1 == my_head["y"] and hazard["x"] == my_head["x"]:
-            is_move_safe["up"] = False
         elif hazard["y"] - 1 == my_head["y"] and hazard["x"] == my_head["x"]:
+            is_move_safe["up"] = False
+        elif hazard["y"] + 1 == my_head["y"] and hazard["x"] == my_head["x"]:
             is_move_safe["down"] = False
 
     # Are there any safe moves left?
@@ -131,9 +132,6 @@ def get_legal_moves_state(state: State)  -> list[AnyStr]:
 
 def next_state(state, sim_move):
     new_state = state.copy()
-    print(f"new state you_index: {new_state.you_index}")
-    print(f"new state you: {new_state.you}")
-    # new_heads = {}
     # --- MOVE ALL SNAKES ---
     for i, snake in enumerate(new_state.snakes):
         # If the snake is our own, do the given simulated move; sim_move
@@ -217,11 +215,19 @@ def is_terminal(state: State):
 
 
 def get_reward(state: State, turns_survived: int):
+    # Consistently gives higher rewards for snakes with more health compared to dead snakes
     if state.is_dead:
-        return turns_survived * 0.1  # Small reward for surviving longer
+        return min(turns_survived * 0.05, 1)
 
     # Large reward for being alive + length + health bonus
-    return 100 + (len(state.you) * 10) + state.health
+    min_dist = np.inf
+    food_dist = 1000
+    if state.food:
+        for f in state.food:
+            food_dist = np.sqrt((state.you[0]['x'] - f['x'])**2 + (state.you[0]['y'] - f['y'])**2)
+            if food_dist < min_dist:
+                min_dist = food_dist
+    return len(state.you) + state.health / 100 + (5/food_dist)
 
 # =========================
 # MCTS CORE
@@ -234,11 +240,11 @@ def expand(node):
     random_index = random.randrange(len(node.untried_moves))
     move = node.untried_moves.pop(random_index)
     new_state = next_state(node.state, move)
-    child = Node(new_state, parent=node, move=move)
+    child = Node(new_state, parent=node, move=move, depth=node.depth+1)
     node.children.append(child)
     return child
 
-def simulate(state: State):
+def simulate(state: State, sim_type):
     """
     Rollout (play randomly until terminal)
     """
@@ -254,7 +260,11 @@ def simulate(state: State):
             rollout_state.is_dead = True
             break
 
-        move = random.choice(moves)
+        if sim_type == "heuristic":
+            # TODO IMPLEMENT HEURISTIC HERE
+            move = random.choice(moves)
+        else:
+            move = random.choice(moves)
         rollout_state = next_state(rollout_state, move)
         turns += 1
 
@@ -266,13 +276,14 @@ def backpropagate(node, reward):
     Backpropagation step
     """
     # print(node.parent)
-    while node.parent is not None:
+    while node is not None:
         node.visits += 1
+        # node.value = reward
         node.value += reward
         node = node.parent
 
 
-def mcts(root_state, deadline=.9):
+def mcts(root_state, sim_type, deadline=.9):
     root = Node(root_state)
 
     deadline = time.time() + deadline
@@ -280,23 +291,17 @@ def mcts(root_state, deadline=.9):
         node = root
         # 1. Selection
         # aka selecting child of highest uct, given that each node is fully expanded
-        a = 0
         while node.is_fully_expanded() and node.children:
-            a+=1
             node = node.uct()
-        # if a > 0:
-        #     print(a)
 
         # 2. Expansion
         # The node we have arrived at, has untried moves which we want to expand, the overwritten node is a random child
-        # print(node.is_fully_expanded(), is_terminal(node.state))
-        # print( "=============")
-        if not node.is_fully_expanded() and not is_terminal(node.state):
-            # print("expanding")
+        if not node.is_fully_expanded():
+                # and not is_terminal(node.state)):
             node = expand(node)
 
         # 3. Simulation (rollout)
-        reward = simulate(node.state)
+        reward = simulate(node.state, sim_type)
 
         # 4. Backpropagation
         backpropagate(node, reward)
@@ -304,15 +309,25 @@ def mcts(root_state, deadline=.9):
     # Choose best move
     if not root.children:
         return random.choice(get_legal_moves_state(root_state))
-    best_child = max(root.children, key=lambda c: c.visits)
+    safe_moves = get_legal_moves_state(root_state)
+    print(f"safe moves: {safe_moves}")
+    for child in root.children:
+        print(f"move {child.move}, score: {child.value / child.visits}")
+    dir_score = max([(child.move, child.value / child.visits) for child in root.children], key=lambda x: x[1])
+    best_child = max(root.children, key=lambda c: c.value)
+    # print(f"dir score: {dir_score}")
+    best_child = dir_score[0]
+    # print(best_child.move)
+    print(f"best child is {best_child}")
 
-    return best_child.move
+    return best_child
+    # return best_child.move
 
 
 # =========================
 # AGENT
 # =========================
 
-def mcts_move(game_state):
+def mcts_move(game_state, sim_type="random"):
     state = State(game_state)
-    return mcts(state)
+    return mcts(state, sim_type=sim_type)
