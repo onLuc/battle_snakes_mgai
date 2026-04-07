@@ -15,8 +15,9 @@ import random
 import typing
 from typing import AnyStr
 from MCTS import mcts_move
+from agent_core import heuristic_move
 
-SNAKE_TACTIC = "MCTS"
+SNAKE_TACTIC = "heuristic"
 
 # info is called when you create your Battlesnake on play.battlesnake.com
 # and controls your Battlesnake's appearance
@@ -123,6 +124,10 @@ def move(game_state: typing.Dict) -> typing.Dict:
     next_move = random.choice(safe_moves)
     if SNAKE_TACTIC == "MCTS":
         next_move = mcts_move(game_state)
+    elif SNAKE_TACTIC == "heuristic":
+        next_move, _ = heuristic_move(game_state)  # returns (move, scores)
+        if next_move not in safe_moves:  # safety guard
+            next_move = random.choice(safe_moves)
 
 
     # TODO: Step 4 - Move towards food instead of random, to regain health and survive longer
