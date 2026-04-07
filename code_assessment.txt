@@ -1,0 +1,132 @@
+Implementation Differences
+
+  State Representation
+
+  ┌──────────────┬────────────────────────────────┬─────────────────────────────────────┐
+  │              │      starter-snake-python      │     starter-snake-python-claude     │
+  ├──────────────┼────────────────────────────────┼─────────────────────────────────────┤
+  │ State format │ State class with copy.deepcopy │ Dict-based, clone_state() (faster)  │
+  ├──────────────┼────────────────────────────────┼─────────────────────────────────────┤
+  │ Coordinates  │ {"x": int, "y": int} dicts     │ (x, y) tuples (hashable → use sets) │
+  └──────────────┴────────────────────────────────┴─────────────────────────────────────┘
+
+  MCTS Core (MCTS.py)
+
+  Opponent simulation:
+  - Original: Opponents move fully randomly — random.choice(["up","down","left","right"]) — can even move into walls
+  - Claude: opponent_joint_responses() evaluates top-2 heuristic moves per opponent, considers all joint combinations (up to 6). More realistic adversary modeling
+
+  UCT / node selection:
+  - Original: Standard UCB1 with c=1.4, random tiebreak
+  - Claude: PUCT-style — exploit + explore + prior_bonus, where prior_bonus is normalized heuristic score decaying as 18.0 / (1 + visits). Better moves get tried first
+
+  Root scoring:
+  - Original: None — tree is built without pre-scoring root moves
+  - Claude: opponent_aware_root_scores() computes minimax-style priors at root: 0.55 * worst + 0.30 * average + 0.15 * median across opponent response scenarios
+
+  Rollout (simulation):
+  - Original: sim_type == "heuristic" branch is a TODO — both branches are random.choice(moves)
+  - Claude: rollout_move() uses local_move_score() with a shortlist (top moves within 18 pts of best) — guided, not pure random
+
+  Safety fallback:
+  - Original: None — MCTS result used directly
+  - Claude: If MCTS avg < 0 AND heuristic is >60 pts better, overrides MCTS with heuristic choice
+
+  Reward function bug in original:
+  # starter-snake-python/MCTS.py:227-230
+  for f in state.food:
+      food_dist = np.sqrt(...)  # overwrites each loop
+      if food_dist < min_dist:
+          min_dist = food_dist
+  return len(state.you) + state.health / 100 + (5/food_dist)  # uses food_dist, not min_dist!
+  Returns distance to the last food in the list, not the nearest.
+
+  Code Organization
+
+  ┌────────────────┬────────────────────────────────────────────────┬──────────────────────────────────────────────────────────┐
+  │                │              starter-snake-python              │               starter-snake-python-claude                │
+  ├────────────────┼────────────────────────────────────────────────┼──────────────────────────────────────────────────────────┤
+  │ Entry points   │ One main.py with hardcoded SNAKE_TACTIC string │ Separate mcts_main.py, heuristic_main.py, random_main.py │
+  ├────────────────┼────────────────────────────────────────────────┼──────────────────────────────────────────────────────────┤
+  │ Mode switching │ Change constant in code                        │ SNAKE_TACTIC=mcts python main.py env var                 │
+  ├────────────────┼────────────────────────────────────────────────┼──────────────────────────────────────────────────────────┤
+  │ run_game.py    │ Hardcoded 2-snake matchup                      │ MATCHUP=mcts_vs_heuristic python run_game.py env var     │
+  └────────────────┴────────────────────────────────────────────────┴──────────────────────────────────────────────────────────┘
+
+  Note: agent_core.py is identical in both folders — the rich heuristic (local_move_score, evaluate_state, territory_score, flood fill, etc.) is the same.
+
+  ---
+  Which is better?
+
+  starter-snake-python-claude is significantly better because:
+  1. Opponents aren't random — they play heuristically, so MCTS simulates a more realistic game
+  2. PUCT-style priors mean good moves are explored first, not wasted iterations on clearly bad moves
+  3. Rollouts are guided by heuristic, not random walks
+  4. Root priors account for worst-case opponent responses (minimax blend)
+  5. Heuristic safety net prevents catastrophic MCTS misfires
+  6. No reward function bug
+
+  ---
+  How to Run
+
+  starter-snake-python (original)
+
+  cd starter-snake-python
+  # Terminal 1 — agent on port 8000
+  python main.py
+
+  # Terminal 2 — second agent on port 8001 (same code, different port)
+  PORT=8001 python main.py
+
+  # Terminal 3 — run game
+  python run_game.py
+
+  starter-snake-python-claude
+
+  cd starter-snake-python-claude
+
+  # Terminal 1
+  python mcts_main.py                  # MCTS agent, port 8000
+
+  # Terminal 2
+  PORT=8001 python heuristic_main.py   # Heuristic agent, port 8001
+
+  # Terminal 3
+  PORT=8002 python random_main.py      # Random agent, port 8002
+
+  # Terminal 4 — pick a matchup
+  MATCHUP=mcts_vs_heuristic python run_game.py
+  MATCHUP=mcts_vs_random python run_game.py
+  MATCHUP=heuristic_vs_random python run_game.py
+
+  ---
+  What's Needed to Complete the Assignment
+
+  Here's what's done vs. missing:
+
+  ┌──────────────────────────────────────┬─────────┬──────────────────────────────────────────────────────────────────────────────────────────────────┐
+  │             Requirement              │ Status  │                                              Notes                                               │
+  ├──────────────────────────────────────┼─────────┼──────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ Heuristic agent                      │ Done    │ Rich local_move_score + evaluate_state in agent_core.py                                          │
+  ├──────────────────────────────────────┼─────────┼──────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ MCTS agent                           │ Done    │ Both versions have MCTS                                                                          │
+  ├──────────────────────────────────────┼─────────┼──────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ Actions from MCTS (not hardcoded)    │ Done    │ Fully dynamic                                                                                    │
+  ├──────────────────────────────────────┼─────────┼──────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ At least 2 MCTS improvements         │ Done    │ Prior-guided expansion, opponent modeling, PUCT UCT, heuristic rollouts — need to document these │
+  ├──────────────────────────────────────┼─────────┼──────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ Compare heuristic vs random rollouts │ Missing │ Need to actually run experiments and collect data                                                │
+  ├──────────────────────────────────────┼─────────┼──────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ Tournament with ELO/TrueSkill        │ Missing │ No scoring system implemented — need to run many games and compute ratings                       │
+  ├──────────────────────────────────────┼─────────┼──────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ Parameter tuning experiments         │ Missing │ MCTS budget, exploration constant, prior weight — no sweep done                                  │
+  ├──────────────────────────────────────┼─────────┼──────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ Scientific report                    │ Missing │                                                                                                  │
+  ├──────────────────────────────────────┼─────────┼──────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ Future Work section with literature  │ Missing │ RAVE [3] and survey [4] are cited in the PDF                                                     │
+  ├──────────────────────────────────────┼─────────┼──────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ Contest submission (teamname.py)     │ Missing │ One file, ≤1s per turn                                                                           │
+  └──────────────────────────────────────┴─────────┴──────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+  The biggest gaps are the tournament infrastructure (ELO/TrueSkill over many runs) and the written report. The code is in good shape.
+
