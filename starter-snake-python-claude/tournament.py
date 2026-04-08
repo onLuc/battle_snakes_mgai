@@ -1,35 +1,24 @@
 """
-Full round-robin tournament: every agent plays every other agent.
-Uses iteration-based MCTS budget so all variants get the same search depth.
-Supports multiprocessing to parallelise games across CPU cores.
+Round-robin tournament runner and reusable experiment backend.
 
-Two modes:
-  --study   Focused study: MCTS-All vs Heuristic/MCTS-Vanilla/Random only.
-            Default 200 iterations, 10 seeds. Good for validating MCTS-All.
-  (default) Full round-robin ablation with all 7 agents.
-            Default 50 iterations, 10 seeds.
-
-Usage:
-    python tournament.py                                    # full round-robin
-    python tournament.py --study                            # focused study
-    python tournament.py --seeds 30 --iterations 100        # custom
-    python tournament.py --study --workers 4                # parallel on 4 cores
-
-Environment variables:
-    NUM_SEEDS       — number of seeds per matchup (default 10)
-    MCTS_ITERATIONS — iterations per MCTS move (default depends on mode)
-    MAX_TURNS       — max turns per game (default 200)
-    RESULTS_DIR     — output directory (default "tournament_results")
+Supports:
+  - full ablations across built-in agent variants
+  - focused studies on subsets of agents
+  - custom MCTS agent specs for hyperparameter sweeps
+  - multiprocessing
+  - reproducible CSV + metadata output
 """
 
 import argparse
 import csv
+import json
 import os
 import sys
 import time
+from dataclasses import dataclass
 from itertools import combinations
 from multiprocessing import Pool
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 # Optional TrueSkill
 try:
@@ -58,27 +47,75 @@ from MCTS import (
     ALL_IMPROVEMENTS_CONFIG,
     HEURISTIC_ROLLOUT_CONFIG,
     OPPONENT_AWARE_CONFIG,
+    PRIOR_GUIDED_CONFIG,
+    RAVE_CONFIG,
     UCB1_TUNED_CONFIG,
     VANILLA_CONFIG,
 )
 
-# Maps agent name → (agent_type, config_or_None)
-# agent_type is one of: "random", "heuristic", "mcts"
-AGENT_CONFIGS: Dict[str, Tuple[str, object]] = {
-    "Random":           ("random", None),
-    "Heuristic":        ("heuristic", None),
-    "MCTS-Vanilla":     ("mcts", VANILLA_CONFIG),
-    "MCTS-HeurRollout": ("mcts", HEURISTIC_ROLLOUT_CONFIG),
-    "MCTS-Opponent":    ("mcts", OPPONENT_AWARE_CONFIG),
-    "MCTS-UCB1Tuned":   ("mcts", UCB1_TUNED_CONFIG),
-    "MCTS-All":         ("mcts", ALL_IMPROVEMENTS_CONFIG),
+CONFIG_PRESETS: Dict[str, object] = {
+    "VANILLA_CONFIG": VANILLA_CONFIG,
+    "HEURISTIC_ROLLOUT_CONFIG": HEURISTIC_ROLLOUT_CONFIG,
+    "PRIOR_GUIDED_CONFIG": PRIOR_GUIDED_CONFIG,
+    "OPPONENT_AWARE_CONFIG": OPPONENT_AWARE_CONFIG,
+    "RAVE_CONFIG": RAVE_CONFIG,
+    "UCB1_TUNED_CONFIG": UCB1_TUNED_CONFIG,
+    "ALL_IMPROVEMENTS_CONFIG": ALL_IMPROVEMENTS_CONFIG,
+}
+
+@dataclass(frozen=True)
+class AgentSpec:
+    name: str
+    agent_type: str
+    config_name: Optional[str] = None
+    config_overrides: Optional[Dict[str, Any]] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "name": self.name,
+            "agent_type": self.agent_type,
+            "config_name": self.config_name,
+            "config_overrides": dict(self.config_overrides or {}),
+        }
+
+
+BUILTIN_AGENT_SPECS: Dict[str, AgentSpec] = {
+    "Random": AgentSpec("Random", "random"),
+    "Heuristic": AgentSpec("Heuristic", "heuristic"),
+    "MCTS-Vanilla": AgentSpec("MCTS-Vanilla", "mcts", "VANILLA_CONFIG"),
+    "MCTS-HeurRollout": AgentSpec("MCTS-HeurRollout", "mcts", "HEURISTIC_ROLLOUT_CONFIG"),
+    "MCTS-Prior": AgentSpec("MCTS-Prior", "mcts", "PRIOR_GUIDED_CONFIG"),
+    "MCTS-Opponent": AgentSpec("MCTS-Opponent", "mcts", "OPPONENT_AWARE_CONFIG"),
+    "MCTS-RAVE": AgentSpec("MCTS-RAVE", "mcts", "RAVE_CONFIG"),
+    "MCTS-UCB1Tuned": AgentSpec("MCTS-UCB1Tuned", "mcts", "UCB1_TUNED_CONFIG"),
+    "MCTS-All": AgentSpec("MCTS-All", "mcts", "ALL_IMPROVEMENTS_CONFIG"),
 }
 
 
-def make_agent(name: str, mcts_iterations: int) -> Callable:
-    """Create an agent callable.  mcts_iterations is passed explicitly
-    so that the function doesn't rely on mutable module-level state."""
-    agent_type, config = AGENT_CONFIGS[name]
+def list_builtin_agents() -> List[str]:
+    return sorted(BUILTIN_AGENT_SPECS.keys())
+
+
+def named_agent_specs(agent_names: List[str]) -> List[AgentSpec]:
+    missing = [name for name in agent_names if name not in BUILTIN_AGENT_SPECS]
+    if missing:
+        raise KeyError(f"Unknown agent names: {', '.join(missing)}")
+    return [BUILTIN_AGENT_SPECS[name] for name in agent_names]
+
+
+def _resolve_mcts_config(config_name: Optional[str], overrides: Optional[Dict[str, Any]]):
+    if not config_name:
+        config = ALL_IMPROVEMENTS_CONFIG
+    else:
+        config = CONFIG_PRESETS[config_name]
+    if overrides:
+        config = config.copy_with(**overrides)
+    return config
+
+
+def make_agent(spec: AgentSpec, mcts_iterations: int) -> Callable:
+    """Create an agent callable from a serialisable AgentSpec."""
+    agent_type = spec.agent_type
 
     if agent_type == "random":
         import random as _random
@@ -100,7 +137,7 @@ def make_agent(name: str, mcts_iterations: int) -> Callable:
 
     else:  # mcts
         from MCTS import mcts_move as _mm
-        _cfg = config
+        _cfg = _resolve_mcts_config(spec.config_name, spec.config_overrides)
         _iters = mcts_iterations
 
         def agent(game_state: dict) -> str:
@@ -132,16 +169,20 @@ def _run_single_game(args_tuple):
     """Run one game.  Designed to be called via multiprocessing.Pool.map().
 
     Parameters are packed in a tuple for Pool compatibility:
-        (name_a, name_b, seed, mcts_iterations, max_turns)
+        (spec_a_dict, spec_b_dict, seed, mcts_iterations, max_turns)
 
     Returns a record dict.
     """
-    name_a, name_b, seed, mcts_iterations, max_turns = args_tuple
+    spec_a_dict, spec_b_dict, seed, mcts_iterations, max_turns = args_tuple
+    spec_a = AgentSpec(**spec_a_dict)
+    spec_b = AgentSpec(**spec_b_dict)
+    name_a = spec_a.name
+    name_b = spec_b.name
 
     from simulate_game import run_game as _run_game
 
-    agent_a = make_agent(name_a, mcts_iterations)
-    agent_b = make_agent(name_b, mcts_iterations)
+    agent_a = make_agent(spec_a, mcts_iterations)
+    agent_b = make_agent(spec_b, mcts_iterations)
 
     t0 = time.time()
     result = _run_game(
@@ -189,14 +230,15 @@ def _run_single_game(args_tuple):
 # ---------------------------------------------------------------------------
 
 def run_matchup_sequential(
-    name_a: str,
-    name_b: str,
+    spec_a: AgentSpec,
+    spec_b: AgentSpec,
     seeds: List[int],
     mcts_iterations: int,
+    max_turns: int = MAX_TURNS,
 ) -> List[dict]:
-    """Run one game per seed between name_a and name_b (single process)."""
+    """Run one game per seed between two AgentSpecs (single process)."""
     work_items = [
-        (name_a, name_b, seed, mcts_iterations, MAX_TURNS)
+        (spec_a.to_dict(), spec_b.to_dict(), seed, mcts_iterations, max_turns)
         for seed in seeds
     ]
     return [_run_single_game(item) for item in work_items]
@@ -207,19 +249,20 @@ def run_matchup_sequential(
 # ---------------------------------------------------------------------------
 
 def run_tournament(
-    agent_names: List[str],
+    agent_specs: List[AgentSpec],
     seeds: List[int],
     mcts_iterations: int,
     num_workers: int = 1,
+    max_turns: int = MAX_TURNS,
 ) -> dict:
     """
     Full round-robin: every agent plays every other agent.
     If num_workers > 1, games are parallelised across CPU cores.
     """
     # Generate all pairwise matchups
-    matchups = list(combinations(agent_names, 2))
+    matchups = list(combinations(agent_specs, 2))
     total_games = len(matchups) * len(seeds)
-    print(f"\nRound-robin: {len(agent_names)} agents, "
+    print(f"\nRound-robin: {len(agent_specs)} agents, "
           f"{len(matchups)} matchups, {len(seeds)} seeds = {total_games} games"
           f" (workers={num_workers})")
 
@@ -228,9 +271,9 @@ def run_tournament(
     if num_workers > 1:
         # --- PARALLEL: build all work items, dispatch to pool ---
         all_work = []
-        for name_a, name_b in matchups:
+        for spec_a, spec_b in matchups:
             for seed in seeds:
-                all_work.append((name_a, name_b, seed, mcts_iterations, MAX_TURNS))
+                all_work.append((spec_a.to_dict(), spec_b.to_dict(), seed, mcts_iterations, max_turns))
 
         print(f"Dispatching {len(all_work)} games across {num_workers} workers...")
         with Pool(processes=num_workers) as pool:
@@ -239,9 +282,9 @@ def run_tournament(
         # --- SEQUENTIAL: run matchup by matchup for cleaner output ---
         all_records = []
         games_played = 0
-        for name_a, name_b in matchups:
-            print(f"\n=== {name_a} vs {name_b} ({games_played}/{total_games} done) ===")
-            records = run_matchup_sequential(name_a, name_b, seeds, mcts_iterations)
+        for spec_a, spec_b in matchups:
+            print(f"\n=== {spec_a.name} vs {spec_b.name} ({games_played}/{total_games} done) ===")
+            records = run_matchup_sequential(spec_a, spec_b, seeds, mcts_iterations, max_turns=max_turns)
             all_records.extend(records)
             games_played += len(records)
 
@@ -250,6 +293,7 @@ def run_tournament(
           f"({elapsed_total/60:.1f} min)")
 
     # --- Compute ratings ---
+    agent_names = [spec.name for spec in agent_specs]
     elo: Dict[str, float] = {name: 1500.0 for name in agent_names}
 
     ts_ratings: Dict[str, object] = {}
@@ -347,6 +391,32 @@ def save_results(results: dict, results_dir: str) -> None:
     print(f"[saved] {ratings_path}")
 
 
+def save_metadata(
+    results_dir: str,
+    agent_specs: List[AgentSpec],
+    seeds: List[int],
+    mcts_iterations: int,
+    max_turns: int,
+    extra: Optional[Dict[str, Any]] = None,
+) -> None:
+    os.makedirs(results_dir, exist_ok=True)
+    metadata = {
+        "agent_specs": [spec.to_dict() for spec in agent_specs],
+        "num_agents": len(agent_specs),
+        "seeds": list(seeds),
+        "num_seeds": len(seeds),
+        "mcts_iterations": mcts_iterations,
+        "max_turns": max_turns,
+    }
+    if extra:
+        metadata.update(extra)
+
+    metadata_path = os.path.join(results_dir, "metadata.json")
+    with open(metadata_path, "w") as f:
+        json.dump(metadata, f, indent=2, sort_keys=True)
+    print(f"[saved] {metadata_path}")
+
+
 # ---------------------------------------------------------------------------
 # Summary printer (with pairwise win matrix)
 # ---------------------------------------------------------------------------
@@ -429,7 +499,7 @@ def print_summary(results: dict) -> None:
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run full round-robin tournament")
+    parser = argparse.ArgumentParser(description="Run reproducible Battlesnake tournaments")
     parser.add_argument(
         "--study",
         action="store_true",
@@ -452,14 +522,50 @@ if __name__ == "__main__":
         "--workers", type=int, default=1,
         help="Number of parallel worker processes (default 1 = sequential)",
     )
+    parser.add_argument(
+        "--agents",
+        type=str,
+        default=None,
+        help="Comma-separated built-in agent names. Overrides --study/default presets.",
+    )
+    parser.add_argument(
+        "--results-dir",
+        type=str,
+        default=None,
+        help="Output directory for CSVs and metadata.",
+    )
+    parser.add_argument(
+        "--max-turns",
+        type=int,
+        default=MAX_TURNS,
+        help=f"Maximum turns per game (default {MAX_TURNS}).",
+    )
+    parser.add_argument(
+        "--list-agents",
+        action="store_true",
+        help="Print available built-in agent names and exit.",
+    )
     args = parser.parse_args()
 
-    if args.study:
+    if args.list_agents:
+        print("\n".join(list_builtin_agents()))
+        sys.exit(0)
+
+    if args.agents:
+        agent_names = [part.strip() for part in args.agents.split(",") if part.strip()]
+        agent_specs = named_agent_specs(agent_names)
+        mcts_iterations = args.iterations if args.iterations is not None else int(
+            os.environ.get("MCTS_ITERATIONS", "50")
+        )
+        n_seeds = args.seeds if args.seeds is not None else (5 if args.quick else NUM_SEEDS)
+        results_dir = args.results_dir or RESULTS_DIR
+        mode_label = "CUSTOM AGENT SET"
+    elif args.study:
         # Focused study mode: MCTS-All vs 3 key opponents
         mcts_iterations = args.iterations if args.iterations is not None else 200
         n_seeds = args.seeds if args.seeds is not None else (5 if args.quick else 10)
-        results_dir = os.environ.get("RESULTS_DIR", "study_results")
-        agent_names = ["Random", "Heuristic", "MCTS-Vanilla", "MCTS-All"]
+        results_dir = args.results_dir or os.environ.get("RESULTS_DIR", "study_results")
+        agent_specs = named_agent_specs(["Random", "Heuristic", "MCTS-Vanilla", "MCTS-All"])
         mode_label = "FOCUSED STUDY"
     else:
         # Full round-robin ablation
@@ -467,23 +573,38 @@ if __name__ == "__main__":
             os.environ.get("MCTS_ITERATIONS", "50")
         )
         n_seeds = args.seeds if args.seeds is not None else (5 if args.quick else NUM_SEEDS)
-        results_dir = RESULTS_DIR
-        agent_names = list(AGENT_CONFIGS.keys())
+        results_dir = args.results_dir or RESULTS_DIR
+        agent_specs = named_agent_specs(list_builtin_agents())
         mode_label = "FULL ROUND-ROBIN"
 
     seeds = list(range(n_seeds))
+    agent_names = [spec.name for spec in agent_specs]
 
     print(f"\n{'='*60}")
     print(f"  {mode_label}")
     print(f"{'='*60}")
     print(f"  Seeds per matchup : {n_seeds}")
     print(f"  MCTS iterations   : {mcts_iterations}")
-    print(f"  Max turns per game: {MAX_TURNS}")
+    print(f"  Max turns per game: {args.max_turns}")
     print(f"  Workers           : {args.workers}")
     print(f"  Agents            : {', '.join(agent_names)}")
     print(f"  Results directory  : {results_dir}")
     print(f"{'='*60}\n")
 
-    results = run_tournament(agent_names, seeds, mcts_iterations, num_workers=args.workers)
+    results = run_tournament(
+        agent_specs,
+        seeds,
+        mcts_iterations,
+        num_workers=args.workers,
+        max_turns=args.max_turns,
+    )
     print_summary(results)
     save_results(results, results_dir)
+    save_metadata(
+        results_dir,
+        agent_specs,
+        seeds,
+        mcts_iterations,
+        args.max_turns,
+        extra={"mode_label": mode_label},
+    )

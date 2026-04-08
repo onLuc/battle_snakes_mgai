@@ -1,0 +1,49 @@
+{
+  "agent_specs": [
+    {
+      "agent_type": "random",
+      "config_name": null,
+      "config_overrides": {},
+      "name": "Random"
+    },
+    {
+      "agent_type": "heuristic",
+      "config_name": null,
+      "config_overrides": {},
+      "name": "Heuristic"
+    },
+    {
+      "agent_type": "mcts",
+      "config_name": "VANILLA_CONFIG",
+      "config_overrides": {},
+      "name": "MCTS-Vanilla"
+    },
+    {
+      "agent_type": "mcts",
+      "config_name": "ALL_IMPROVEMENTS_CONFIG",
+      "config_overrides": {},
+      "name": "MCTS-All-iterations-25"
+    }
+  ],
+  "base_config_name": "ALL_IMPROVEMENTS_CONFIG",
+  "focus_agent": "MCTS-All-iterations-25",
+  "max_turns": 200,
+  "mcts_iterations": 25,
+  "num_agents": 4,
+  "num_seeds": 10,
+  "parameter_name": "iterations",
+  "parameter_value": 25,
+  "preset": "iterations_sweep",
+  "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+  ]
+}

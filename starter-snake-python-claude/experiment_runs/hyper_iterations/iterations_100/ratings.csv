@@ -1,0 +1,5 @@
+agent,elo,ts_mu,ts_sigma,ts_conservative
+Heuristic,1607.01,25.0478,1.9206,19.2861
+MCTS-All-iterations-100,1614.39,27.1158,1.8513,21.5618
+MCTS-Vanilla,1532.68,24.3294,1.7732,19.0097
+Random,1245.92,10.4352,2.7694,2.127

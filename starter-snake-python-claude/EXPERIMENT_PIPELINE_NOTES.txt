@@ -1,0 +1,108 @@
+================================================================================
+Experiment Pipeline Improvements
+================================================================================
+
+This file briefly documents the tooling improvements added to make the project
+easier to evaluate, reproduce, and report on.
+
+1. Tournament runner refactor
+-----------------------------
+
+The tournament pipeline was extended so it can now:
+  - run arbitrary subsets of built-in agents
+  - include the previously missing ablation variants:
+      MCTS-Prior
+      MCTS-RAVE
+  - save metadata.json alongside game_records.csv and ratings.csv
+  - support reusable AgentSpec definitions for custom MCTS variants
+  - support configurable results directories and max-turn settings
+
+This makes experiments reproducible from saved outputs rather than only from
+console logs or hardcoded presets.
+
+2. Preset experiment suite
+--------------------------
+
+A new experiment_suite.py script was added to automate the main study types:
+  - heuristic_baseline
+  - rollout_ablation
+  - vs_heuristic
+  - improvement_ablation
+  - small_study_40
+  - hyper_sweeps
+
+This reduces manual command management and keeps experiment folder structure
+consistent across runs.
+
+3. Focused Heuristic-anchor study
+---------------------------------
+
+The new vs_heuristic preset creates a focused matchup dataset where Heuristic
+is the anchor agent and is matched against:
+  - Random
+  - MCTS-Vanilla
+  - MCTS-HeurRollout
+  - MCTS-Prior
+  - MCTS-Opponent
+  - MCTS-RAVE
+  - MCTS-UCB1Tuned
+  - MCTS-All
+
+This was added specifically to support clearer report plots, especially the
+MCTS improvement ladder against a strong baseline.
+
+4. Matchup summary database
+---------------------------
+
+Experiment folders now also save matchup_summary.csv, which gives a compact
+pairwise summary derived from raw game_records.csv:
+  - wins / win rates
+  - average turns
+  - average survival
+  - average final lengths
+
+This is more convenient for report writing than working directly from raw game
+records alone.
+
+5. Hyperparameter sweep support
+-------------------------------
+
+Hyperparameter sweep support was added for:
+  - iterations
+  - rollout_depth
+  - exploration
+  - prior_bonus_scale
+
+The sweep_analysis.py script aggregates per-setting experiment folders into:
+  - summary.csv
+  - a sweep line plot
+
+This makes the hyperparameter section of the report reproducible and easier to
+interpret.
+
+6. Report-specific plot generation
+----------------------------------
+
+A dedicated report_plots.py script was added to generate the final report
+figures from:
+  - the existing small_study_40_seeds tournament data
+  - the focused vs_heuristic matchup dataset
+  - the hyperparameter sweep summaries
+
+The script produces the 11 report-oriented figures discussed in the planning
+phase, plus a report_matchup_database.csv file for writing the text analysis.
+
+7. Updated instructions
+-----------------------
+
+run_instructions.txt was updated to describe:
+  - the new experiment presets
+  - the sweep summarization workflow
+  - the report plot generation command
+
+This makes the full evaluation workflow easier to reproduce without relying on
+ad hoc notes.
+
+================================================================================
+End
+================================================================================

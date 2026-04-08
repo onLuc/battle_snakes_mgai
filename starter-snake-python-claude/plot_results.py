@@ -490,10 +490,17 @@ def plot_survival_boxplot(records: List[dict]) -> None:
 # ---------------------------------------------------------------------------
 
 def main() -> None:
+    generate_all_plots(RESULTS_DIR)
+
+
+def generate_all_plots(results_dir: str) -> None:
+    global RESULTS_DIR, PLOTS_DIR
+    RESULTS_DIR = results_dir
+    PLOTS_DIR = os.path.join(RESULTS_DIR, "plots")
     os.makedirs(PLOTS_DIR, exist_ok=True)
 
-    records_path = os.path.join(RESULTS_DIR, "game_records.csv")
-    ratings_path = os.path.join(RESULTS_DIR, "ratings.csv")
+    records_path = os.path.join(results_dir, "game_records.csv")
+    ratings_path = os.path.join(results_dir, "ratings.csv")
 
     records = _load_records(records_path)
     ratings = _load_ratings(ratings_path)

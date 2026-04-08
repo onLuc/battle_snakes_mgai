@@ -109,6 +109,79 @@ Custom settings:
 Output files:
   tournament_results/game_records.csv   — one row per game
   tournament_results/ratings.csv        — ELO + TrueSkill per agent
+  tournament_results/metadata.json      — exact run settings and agent specs
+
+Custom subset of built-in agents:
+  python tournament.py --agents Random,Heuristic,MCTS-Vanilla,MCTS-All --seeds 40 --iterations 100 --results-dir small_study_40_seeds
+
+List available built-in agents:
+  python tournament.py --list-agents
+
+================================================================================
+REPRODUCIBLE REPORT EXPERIMENTS
+================================================================================
+
+Run the full report suite:
+  python experiment_suite.py --preset all_required --base-dir experiment_runs --workers 4
+
+Run a single preset:
+  python experiment_suite.py --preset heuristic_baseline --base-dir experiment_runs
+  python experiment_suite.py --preset rollout_ablation --base-dir experiment_runs
+  python experiment_suite.py --preset vs_heuristic --base-dir experiment_runs
+  python experiment_suite.py --preset improvement_ablation --base-dir experiment_runs
+  python experiment_suite.py --preset small_study_40 --base-dir experiment_runs
+  python experiment_suite.py --preset hyper_sweeps --base-dir experiment_runs
+
+Preset contents:
+  heuristic_baseline   — Heuristic vs Random
+  rollout_ablation     — Random / Heuristic / MCTS-Vanilla / MCTS-HeurRollout
+  vs_heuristic         — Focused Heuristic anchor matchups for report plots
+  improvement_ablation — Full MCTS ablation including Prior and RAVE
+  small_study_40       — 40-seed tournament with Random / Heuristic / MCTS-Vanilla / MCTS-All
+  hyper_sweeps         — Iteration, rollout depth, exploration, and prior-bonus sweeps
+
+Each experiment folder contains:
+  game_records.csv
+  ratings.csv
+  metadata.json
+  plots/
+  matchup_summary.csv
+
+================================================================================
+HYPERPARAMETER SWEEP ANALYSIS
+================================================================================
+
+Rebuild the aggregate CSV + line plots for a sweep folder:
+  python sweep_analysis.py experiment_runs/hyper_iterations
+  python sweep_analysis.py experiment_runs/hyper_rollout_depth
+  python sweep_analysis.py experiment_runs/hyper_exploration
+  python sweep_analysis.py experiment_runs/hyper_prior_bonus
+
+================================================================================
+REPORT-SPECIFIC PLOTS
+================================================================================
+
+Generate the 11 report plots from:
+  - small_study_40_seeds/
+  - experiment_runs/vs_heuristic/
+  - experiment_runs/hyper_*/
+
+Command:
+  python report_plots.py --tournament-dir small_study_40_seeds --vs-heuristic-dir experiment_runs/vs_heuristic --experiment-base-dir experiment_runs --out-dir report_plots
+
+Outputs:
+  report_plots/01_heuristic_vs_random_winrate.png
+  report_plots/02_heuristic_vs_random_survival.png
+  report_plots/03_rollout_vs_vanilla_vs_heuristic.png
+  report_plots/04_mcts_improvement_ladder_vs_heuristic.png
+  report_plots/05_tournament_win_matrix.png
+  report_plots/06_tournament_ratings.png
+  report_plots/07_tournament_survival_boxplot.png
+  report_plots/08_hyper_iterations_effect.png
+  report_plots/09_hyper_rollout_depth_effect.png
+  report_plots/10_hyper_exploration_effect.png
+  report_plots/11_hyper_prior_bonus_effect.png
+  report_plots/report_matchup_database.csv
 
 ================================================================================
 PLOT RESULTS
