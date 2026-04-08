@@ -781,3 +781,477 @@ Dispatching 60 games across 20 workers...
   [Heuristic vs MCTS-All-exploration-1p05] seed=4 WIN (turns=200, 193.7s)
   [Heuristic vs MCTS-All-exploration-1p05] seed=0 LOSS (turns=200, 212.0s)
   [Heuristic vs MCTS-All-exploration-1p05] seed=6 WIN (turns=200, 195.0s)
+  [Heuristic vs MCTS-All-exploration-1p05] seed=5 LOSS (turns=200, 208.0s)
+  [Heuristic vs MCTS-All-exploration-1p05] seed=1 LOSS (turns=200, 222.5s)
+  [MCTS-Vanilla vs MCTS-All-exploration-1p05] seed=3 WIN (turns=157, 182.2s)
+  [MCTS-Vanilla vs MCTS-All-exploration-1p05] seed=9 LOSS (turns=200, 155.2s)
+  [MCTS-Vanilla vs MCTS-All-exploration-1p05] seed=8 LOSS (turns=200, 163.3s)
+  [MCTS-Vanilla vs MCTS-All-exploration-1p05] seed=5 LOSS (turns=200, 188.8s)
+  [MCTS-Vanilla vs MCTS-All-exploration-1p05] seed=0 LOSS (turns=200, 222.7s)
+  [MCTS-Vanilla vs MCTS-All-exploration-1p05] seed=7 LOSS (turns=200, 176.7s)
+  [MCTS-Vanilla vs MCTS-All-exploration-1p05] seed=6 WIN (turns=200, 184.8s)
+  [MCTS-Vanilla vs MCTS-All-exploration-1p05] seed=4 LOSS (turns=188, 207.4s)
+
+Tournament completed: 60 games in 311s (5.2 min)
+
+======================================================================
+Agent                          ELO  TS-Conservative
+----------------------------------------------------------------------
+Heuristic                   1708.4           25.284
+MCTS-All-exploration-1p05   1552.1           17.934
+MCTS-Vanilla                1491.4           16.041
+Random                      1248.1            6.375
+======================================================================
+
+Overall win rates:
+Agent                       Wins  Games   WinRate
+--------------------------------------------------
+Heuristic                     26     30     86.7%
+MCTS-All-exploration-1p05     18     30     60.0%
+MCTS-Vanilla                  15     30     50.0%
+Random                         1     30      3.3%
+
+Pairwise win rates (row beat column):
+                   Heuristic  MCTS-All-exp  MCTS-Vanilla        Random
+     Heuristic           ---    7/10 (70%)    9/10 (90%)  10/10 (100%)
+  MCTS-All-exp    3/10 (30%)           ---    6/10 (60%)    9/10 (90%)
+  MCTS-Vanilla    1/10 (10%)    4/10 (40%)           ---  10/10 (100%)
+        Random     0/10 (0%)    1/10 (10%)     0/10 (0%)           ---
+[saved] experiment_runs/hyper_exploration/exploration_1p05/game_records.csv
+[saved] experiment_runs/hyper_exploration/exploration_1p05/ratings.csv
+[saved] experiment_runs/hyper_exploration/exploration_1p05/metadata.json
+Loaded 60 game records, 4 agent ratings.
+Saving plots to experiment_runs/hyper_exploration/exploration_1p05/plots/
+[saved] experiment_runs/hyper_exploration/exploration_1p05/plots/win_rates.png
+[saved] experiment_runs/hyper_exploration/exploration_1p05/plots/elo_ratings.png
+[saved] experiment_runs/hyper_exploration/exploration_1p05/plots/turns_survived.png
+[WARN] No ablation ladder data found.
+[saved] experiment_runs/hyper_exploration/exploration_1p05/plots/win_matrix.png
+[WARN] Not enough matchups for ELO progression plot.
+[saved] experiment_runs/hyper_exploration/exploration_1p05/plots/survival_boxplot.png
+
+All plots saved.
+
+Round-robin: 4 agents, 6 matchups, 10 seeds = 60 games (workers=20)
+Dispatching 60 games across 20 workers...
+  [Random vs Heuristic] seed=5 LOSS (turns=2, 0.0s)
+  [Random vs Heuristic] seed=2 LOSS (turns=2, 0.0s)
+  [Random vs Heuristic] seed=9 LOSS (turns=14, 0.1s)
+  [Random vs Heuristic] seed=1 LOSS (turns=26, 0.2s)
+  [Random vs Heuristic] seed=7 LOSS (turns=27, 0.2s)
+  [Random vs Heuristic] seed=8 LOSS (turns=36, 0.2s)
+  [Random vs Heuristic] seed=3 LOSS (turns=39, 0.3s)
+  [Random vs Heuristic] seed=4 LOSS (turns=52, 0.4s)
+  [Random vs Heuristic] seed=6 LOSS (turns=82, 0.4s)
+  [Random vs MCTS-All-exploration-1p4] seed=1 LOSS (turns=2, 0.5s)
+  [Random vs Heuristic] seed=0 LOSS (turns=102, 0.7s)
+  [Random vs MCTS-Vanilla] seed=6 LOSS (turns=2, 0.7s)
+  [Random vs MCTS-Vanilla] seed=3 LOSS (turns=21, 7.0s)
+  [Random vs MCTS-All-exploration-1p4] seed=0 LOSS (turns=12, 8.0s)
+  [Random vs MCTS-Vanilla] seed=4 LOSS (turns=21, 10.4s)
+  [Random vs MCTS-Vanilla] seed=8 LOSS (turns=26, 14.2s)
+  [Random vs MCTS-All-exploration-1p4] seed=7 LOSS (turns=23, 27.0s)
+  [Heuristic vs MCTS-Vanilla] seed=3 WIN (turns=52, 40.3s)
+  [Random vs MCTS-Vanilla] seed=7 LOSS (turns=62, 50.0s)
+  [Random vs MCTS-All-exploration-1p4] seed=3 LOSS (turns=38, 50.1s)
+  [Random vs MCTS-Vanilla] seed=2 LOSS (turns=78, 53.7s)
+  [Random vs MCTS-Vanilla] seed=0 LOSS (turns=66, 58.3s)
+  [Random vs MCTS-Vanilla] seed=1 LOSS (turns=69, 58.9s)
+  [Random vs MCTS-All-exploration-1p4] seed=5 LOSS (turns=66, 71.6s)
+  [Random vs MCTS-Vanilla] seed=5 LOSS (turns=101, 72.6s)
+  [Random vs MCTS-All-exploration-1p4] seed=4 LOSS (turns=62, 72.6s)
+  [Random vs MCTS-Vanilla] seed=9 LOSS (turns=103, 74.0s)
+  [Heuristic vs MCTS-Vanilla] seed=8 WIN (turns=59, 29.6s)
+  [Random vs MCTS-All-exploration-1p4] seed=2 LOSS (turns=64, 85.7s)
+  [Heuristic vs MCTS-Vanilla] seed=7 WIN (turns=97, 40.0s)
+  [Heuristic vs MCTS-All-exploration-1p4] seed=8 WIN (turns=16, 19.5s)
+  [Heuristic vs MCTS-Vanilla] seed=2 WIN (turns=200, 101.4s)
+  [Heuristic vs MCTS-Vanilla] seed=9 WIN (turns=200, 68.7s)
+  [Heuristic vs MCTS-Vanilla] seed=1 WIN (turns=200, 126.4s)
+  [Random vs MCTS-All-exploration-1p4] seed=8 LOSS (turns=138, 126.7s)
+  [Heuristic vs MCTS-Vanilla] seed=5 WIN (turns=200, 114.5s)
+  [Random vs MCTS-All-exploration-1p4] seed=9 LOSS (turns=133, 130.1s)
+  [Random vs MCTS-All-exploration-1p4] seed=6 LOSS (turns=106, 132.1s)
+  [Heuristic vs MCTS-Vanilla] seed=0 LOSS (turns=200, 140.6s)
+  [Heuristic vs MCTS-Vanilla] seed=4 LOSS (turns=200, 136.6s)
+  [Heuristic vs MCTS-Vanilla] seed=6 WIN (turns=200, 127.9s)
+  [MCTS-Vanilla vs MCTS-All-exploration-1p4] seed=9 WIN (turns=8, 16.5s)
+  [MCTS-Vanilla vs MCTS-All-exploration-1p4] seed=0 WIN (turns=35, 77.4s)
+  [Heuristic vs MCTS-All-exploration-1p4] seed=9 LOSS (turns=96, 95.2s)
+  [Heuristic vs MCTS-All-exploration-1p4] seed=5 WIN (turns=149, 154.6s)
+  [Heuristic vs MCTS-All-exploration-1p4] seed=3 LOSS (turns=200, 163.1s)
+  [Heuristic vs MCTS-All-exploration-1p4] seed=0 LOSS (turns=200, 185.9s)
+  [Heuristic vs MCTS-All-exploration-1p4] seed=6 WIN (turns=200, 176.9s)
+  [Heuristic vs MCTS-All-exploration-1p4] seed=7 WIN (turns=200, 179.1s)
+  [Heuristic vs MCTS-All-exploration-1p4] seed=4 LOSS (turns=200, 193.3s)
+  [Heuristic vs MCTS-All-exploration-1p4] seed=1 LOSS (turns=200, 209.1s)
+  [Heuristic vs MCTS-All-exploration-1p4] seed=2 LOSS (turns=200, 211.6s)
+  [MCTS-Vanilla vs MCTS-All-exploration-1p4] seed=1 WIN (turns=92, 164.8s)
+  [MCTS-Vanilla vs MCTS-All-exploration-1p4] seed=6 WIN (turns=116, 143.3s)
+  [MCTS-Vanilla vs MCTS-All-exploration-1p4] seed=8 LOSS (turns=134, 137.3s)
+  [MCTS-Vanilla vs MCTS-All-exploration-1p4] seed=7 LOSS (turns=200, 157.7s)
+  [MCTS-Vanilla vs MCTS-All-exploration-1p4] seed=4 LOSS (turns=200, 173.6s)
+  [MCTS-Vanilla vs MCTS-All-exploration-1p4] seed=2 LOSS (turns=193, 198.2s)
+  [MCTS-Vanilla vs MCTS-All-exploration-1p4] seed=5 LOSS (turns=200, 192.8s)
+  [MCTS-Vanilla vs MCTS-All-exploration-1p4] seed=3 LOSS (turns=194, 200.1s)
+
+Tournament completed: 60 games in 327s (5.5 min)
+
+======================================================================
+Agent                          ELO  TS-Conservative
+----------------------------------------------------------------------
+Heuristic                   1661.2           23.426
+MCTS-All-exploration-1p4    1589.3           18.843
+MCTS-Vanilla                1508.0           16.831
+Random                      1241.5            3.390
+======================================================================
+
+Overall win rates:
+Agent                       Wins  Games   WinRate
+--------------------------------------------------
+Heuristic                     22     30     73.3%
+MCTS-All-exploration-1p4      22     30     73.3%
+MCTS-Vanilla                  16     30     53.3%
+Random                         0     30      0.0%
+
+Pairwise win rates (row beat column):
+                   Heuristic  MCTS-All-exp  MCTS-Vanilla        Random
+     Heuristic           ---    4/10 (40%)    8/10 (80%)  10/10 (100%)
+  MCTS-All-exp    6/10 (60%)           ---    6/10 (60%)  10/10 (100%)
+  MCTS-Vanilla    2/10 (20%)    4/10 (40%)           ---  10/10 (100%)
+        Random     0/10 (0%)     0/10 (0%)     0/10 (0%)           ---
+[saved] experiment_runs/hyper_exploration/exploration_1p4/game_records.csv
+[saved] experiment_runs/hyper_exploration/exploration_1p4/ratings.csv
+[saved] experiment_runs/hyper_exploration/exploration_1p4/metadata.json
+Loaded 60 game records, 4 agent ratings.
+Saving plots to experiment_runs/hyper_exploration/exploration_1p4/plots/
+[saved] experiment_runs/hyper_exploration/exploration_1p4/plots/win_rates.png
+[saved] experiment_runs/hyper_exploration/exploration_1p4/plots/elo_ratings.png
+[saved] experiment_runs/hyper_exploration/exploration_1p4/plots/turns_survived.png
+[WARN] No ablation ladder data found.
+[saved] experiment_runs/hyper_exploration/exploration_1p4/plots/win_matrix.png
+[WARN] Not enough matchups for ELO progression plot.
+[saved] experiment_runs/hyper_exploration/exploration_1p4/plots/survival_boxplot.png
+
+All plots saved.
+[saved] experiment_runs/hyper_exploration/summary.csv
+[saved] experiment_runs/hyper_exploration/exploration_sweep.png
+
+Round-robin: 4 agents, 6 matchups, 10 seeds = 60 games (workers=20)
+Dispatching 60 games across 20 workers...
+  [Random vs Heuristic] seed=1 LOSS (turns=2, 0.0s)
+  [Random vs Heuristic] seed=3 LOSS (turns=2, 0.0s)
+  [Random vs Heuristic] seed=9 LOSS (turns=2, 0.0s)
+  [Random vs Heuristic] seed=0 LOSS (turns=2, 0.0s)
+  [Random vs Heuristic] seed=8 LOSS (turns=2, 0.0s)
+  [Random vs Heuristic] seed=4 LOSS (turns=9, 0.1s)
+  [Random vs Heuristic] seed=7 LOSS (turns=32, 0.2s)
+  [Random vs MCTS-Vanilla] seed=7 LOSS (turns=2, 0.3s)
+  [Random vs Heuristic] seed=2 LOSS (turns=67, 0.4s)
+  [Random vs MCTS-All-prior_bonus_scale-1p5] seed=4 LOSS (turns=2, 0.4s)
+  [Random vs Heuristic] seed=6 LOSS (turns=77, 0.5s)
+  [Random vs MCTS-Vanilla] seed=1 LOSS (turns=2, 0.6s)
+  [Random vs Heuristic] seed=5 LOSS (turns=145, 0.7s)
+  [Random vs MCTS-All-prior_bonus_scale-1p5] seed=0 LOSS (turns=2, 1.0s)
+  [Random vs MCTS-All-prior_bonus_scale-1p5] seed=2 LOSS (turns=20, 15.2s)
+  [Random vs MCTS-All-prior_bonus_scale-1p5] seed=8 LOSS (turns=21, 14.9s)
+  [Random vs MCTS-Vanilla] seed=5 LOSS (turns=47, 21.9s)
+  [Random vs MCTS-Vanilla] seed=8 LOSS (turns=44, 22.0s)
+  [Random vs MCTS-All-prior_bonus_scale-1p5] seed=3 LOSS (turns=33, 22.7s)
+  [Random vs MCTS-Vanilla] seed=4 LOSS (turns=59, 28.9s)
+  [Random vs MCTS-Vanilla] seed=2 LOSS (turns=69, 32.9s)
+  [Random vs MCTS-Vanilla] seed=0 LOSS (turns=69, 34.3s)
+  [Random vs MCTS-All-prior_bonus_scale-1p5] seed=9 LOSS (turns=47, 38.6s)
+  [Random vs MCTS-All-prior_bonus_scale-1p5] seed=1 LOSS (turns=58, 42.5s)
+  [Heuristic vs MCTS-Vanilla] seed=7 WIN (turns=51, 21.1s)
+  [Random vs MCTS-Vanilla] seed=9 LOSS (turns=106, 47.5s)
+  [Random vs MCTS-Vanilla] seed=3 LOSS (turns=111, 50.4s)
+  [Random vs MCTS-Vanilla] seed=6 LOSS (turns=120, 50.8s)
+  [Random vs MCTS-All-prior_bonus_scale-1p5] seed=7 LOSS (turns=65, 53.5s)
+  [Heuristic vs MCTS-Vanilla] seed=2 WIN (turns=151, 54.9s)
+  [Heuristic vs MCTS-Vanilla] seed=9 WIN (turns=60, 29.2s)
+  [Random vs MCTS-All-prior_bonus_scale-1p5] seed=6 LOSS (turns=94, 59.4s)
+  [Heuristic vs MCTS-Vanilla] seed=3 WIN (turns=200, 62.3s)
+  [Heuristic vs MCTS-Vanilla] seed=6 LOSS (turns=103, 41.6s)
+  [Heuristic vs MCTS-Vanilla] seed=4 WIN (turns=177, 72.9s)
+  [Heuristic vs MCTS-Vanilla] seed=5 WIN (turns=200, 84.1s)
+  [Heuristic vs MCTS-Vanilla] seed=8 WIN (turns=200, 80.3s)
+  [Heuristic vs MCTS-Vanilla] seed=1 LOSS (turns=186, 108.5s)
+  [Random vs MCTS-All-prior_bonus_scale-1p5] seed=5 LOSS (turns=134, 111.9s)
+  [Heuristic vs MCTS-Vanilla] seed=0 WIN (turns=200, 112.2s)
+  [MCTS-Vanilla vs MCTS-All-prior_bonus_scale-1p5] seed=3 WIN (turns=19, 54.5s)
+  [Heuristic vs MCTS-All-prior_bonus_scale-1p5] seed=3 WIN (turns=68, 80.1s)
+  [MCTS-Vanilla vs MCTS-All-prior_bonus_scale-1p5] seed=8 LOSS (turns=16, 36.8s)
+  [MCTS-Vanilla vs MCTS-All-prior_bonus_scale-1p5] seed=6 WIN (turns=41, 71.6s)
+  [Heuristic vs MCTS-All-prior_bonus_scale-1p5] seed=9 LOSS (turns=183, 136.1s)
+  [Heuristic vs MCTS-All-prior_bonus_scale-1p5] seed=4 WIN (turns=142, 152.6s)
+  [Heuristic vs MCTS-All-prior_bonus_scale-1p5] seed=2 LOSS (turns=166, 163.4s)
+  [Heuristic vs MCTS-All-prior_bonus_scale-1p5] seed=5 LOSS (turns=200, 160.2s)
+  [Heuristic vs MCTS-All-prior_bonus_scale-1p5] seed=8 WIN (turns=159, 155.9s)
+  [Heuristic vs MCTS-All-prior_bonus_scale-1p5] seed=7 LOSS (turns=191, 161.1s)
+  [MCTS-Vanilla vs MCTS-All-prior_bonus_scale-1p5] seed=2 LOSS (turns=104, 151.7s)
+  [Heuristic vs MCTS-All-prior_bonus_scale-1p5] seed=0 LOSS (turns=189, 191.1s)
+  [Heuristic vs MCTS-All-prior_bonus_scale-1p5] seed=1 WIN (turns=200, 191.1s)
+  [Heuristic vs MCTS-All-prior_bonus_scale-1p5] seed=6 WIN (turns=200, 181.1s)
+  [MCTS-Vanilla vs MCTS-All-prior_bonus_scale-1p5] seed=9 LOSS (turns=200, 153.3s)
+  [MCTS-Vanilla vs MCTS-All-prior_bonus_scale-1p5] seed=0 WIN (turns=200, 216.5s)
+  [MCTS-Vanilla vs MCTS-All-prior_bonus_scale-1p5] seed=1 WIN (turns=200, 221.1s)
+  [MCTS-Vanilla vs MCTS-All-prior_bonus_scale-1p5] seed=7 WIN (turns=183, 172.0s)
+  [MCTS-Vanilla vs MCTS-All-prior_bonus_scale-1p5] seed=4 LOSS (turns=200, 198.7s)
+  [MCTS-Vanilla vs MCTS-All-prior_bonus_scale-1p5] seed=5 WIN (turns=200, 193.6s)
+
+Tournament completed: 60 games in 293s (4.9 min)
+
+======================================================================
+Agent                          ELO  TS-Conservative
+----------------------------------------------------------------------
+Heuristic                   1659.6           21.552
+MCTS-All-prior_bonus_scale-1p5   1562.8           18.140
+MCTS-Vanilla                1534.1           17.674
+Random                      1243.5            2.770
+======================================================================
+
+Overall win rates:
+Agent                       Wins  Games   WinRate
+--------------------------------------------------
+Heuristic                     23     30     76.7%
+MCTS-All-prior_bonus_scale-1p5     19     30     63.3%
+MCTS-Vanilla                  18     30     60.0%
+Random                         0     30      0.0%
+
+Pairwise win rates (row beat column):
+                   Heuristic  MCTS-All-pri  MCTS-Vanilla        Random
+     Heuristic           ---    5/10 (50%)    8/10 (80%)  10/10 (100%)
+  MCTS-All-pri    5/10 (50%)           ---    4/10 (40%)  10/10 (100%)
+  MCTS-Vanilla    2/10 (20%)    6/10 (60%)           ---  10/10 (100%)
+        Random     0/10 (0%)     0/10 (0%)     0/10 (0%)           ---
+[saved] experiment_runs/hyper_prior_bonus/prior_bonus_scale_1p5/game_records.csv
+[saved] experiment_runs/hyper_prior_bonus/prior_bonus_scale_1p5/ratings.csv
+[saved] experiment_runs/hyper_prior_bonus/prior_bonus_scale_1p5/metadata.json
+Loaded 60 game records, 4 agent ratings.
+Saving plots to experiment_runs/hyper_prior_bonus/prior_bonus_scale_1p5/plots/
+[saved] experiment_runs/hyper_prior_bonus/prior_bonus_scale_1p5/plots/win_rates.png
+[saved] experiment_runs/hyper_prior_bonus/prior_bonus_scale_1p5/plots/elo_ratings.png
+[saved] experiment_runs/hyper_prior_bonus/prior_bonus_scale_1p5/plots/turns_survived.png
+[WARN] No ablation ladder data found.
+[saved] experiment_runs/hyper_prior_bonus/prior_bonus_scale_1p5/plots/win_matrix.png
+[WARN] Not enough matchups for ELO progression plot.
+[saved] experiment_runs/hyper_prior_bonus/prior_bonus_scale_1p5/plots/survival_boxplot.png
+
+All plots saved.
+
+Round-robin: 4 agents, 6 matchups, 10 seeds = 60 games (workers=20)
+Dispatching 60 games across 20 workers...
+  [Random vs Heuristic] seed=3 LOSS (turns=2, 0.0s)
+  [Random vs Heuristic] seed=6 LOSS (turns=2, 0.0s)
+  [Random vs Heuristic] seed=9 LOSS (turns=10, 0.2s)
+  [Random vs Heuristic] seed=2 LOSS (turns=33, 0.2s)
+  [Random vs MCTS-Vanilla] seed=0 LOSS (turns=2, 0.2s)
+  [Random vs Heuristic] seed=5 LOSS (turns=41, 0.3s)
+  [Random vs MCTS-Vanilla] seed=3 LOSS (turns=2, 0.4s)
+  [Random vs Heuristic] seed=4 LOSS (turns=54, 0.4s)
+  [Random vs Heuristic] seed=7 LOSS (turns=71, 0.5s)
+  [Random vs Heuristic] seed=8 LOSS (turns=107, 0.6s)
+  [Random vs Heuristic] seed=1 LOSS (turns=60, 0.6s)
+  [Random vs MCTS-Vanilla] seed=5 LOSS (turns=2, 0.7s)
+  [Random vs MCTS-All-prior_bonus_scale-4p0] seed=0 LOSS (turns=2, 0.7s)
+  [Random vs Heuristic] seed=0 LOSS (turns=143, 1.0s)
+  [Random vs MCTS-All-prior_bonus_scale-4p0] seed=4 LOSS (turns=2, 0.8s)
+  [Random vs MCTS-All-prior_bonus_scale-4p0] seed=8 LOSS (turns=2, 0.8s)
+  [Random vs MCTS-All-prior_bonus_scale-4p0] seed=2 LOSS (turns=2, 1.4s)
+  [Random vs MCTS-All-prior_bonus_scale-4p0] seed=5 LOSS (turns=2, 1.4s)
+  [Random vs MCTS-Vanilla] seed=7 LOSS (turns=28, 9.6s)
+  [Random vs MCTS-Vanilla] seed=4 LOSS (turns=27, 11.4s)
+  [Random vs MCTS-All-prior_bonus_scale-4p0] seed=3 LOSS (turns=21, 13.1s)
+  [Random vs MCTS-Vanilla] seed=2 LOSS (turns=29, 13.5s)
+  [Heuristic vs MCTS-Vanilla] seed=8 WIN (turns=12, 5.7s)
+  [Random vs MCTS-All-prior_bonus_scale-4p0] seed=1 LOSS (turns=22, 16.4s)
+  [Random vs MCTS-Vanilla] seed=8 LOSS (turns=54, 20.0s)
+  [Random vs MCTS-Vanilla] seed=6 WIN (turns=81, 30.5s)
+  [Random vs MCTS-All-prior_bonus_scale-4p0] seed=6 LOSS (turns=40, 34.1s)
+  [Random vs MCTS-All-prior_bonus_scale-4p0] seed=9 LOSS (turns=38, 34.3s)
+  [Random vs MCTS-Vanilla] seed=9 LOSS (turns=99, 39.6s)
+  [Heuristic vs MCTS-Vanilla] seed=4 WIN (turns=82, 38.6s)
+  [Heuristic vs MCTS-Vanilla] seed=7 WIN (turns=123, 49.4s)
+  [Heuristic vs MCTS-Vanilla] seed=9 WIN (turns=127, 39.8s)
+  [Random vs MCTS-Vanilla] seed=1 LOSS (turns=111, 51.5s)
+  [Random vs MCTS-All-prior_bonus_scale-4p0] seed=7 LOSS (turns=67, 56.2s)
+  [Heuristic vs MCTS-Vanilla] seed=2 WIN (turns=200, 74.4s)
+  [Heuristic vs MCTS-Vanilla] seed=0 LOSS (turns=194, 79.0s)
+  [Heuristic vs MCTS-Vanilla] seed=6 WIN (turns=200, 84.7s)
+  [Heuristic vs MCTS-Vanilla] seed=3 LOSS (turns=200, 94.0s)
+  [Heuristic vs MCTS-Vanilla] seed=1 WIN (turns=200, 96.5s)
+  [Heuristic vs MCTS-Vanilla] seed=5 WIN (turns=200, 116.1s)
+  [MCTS-Vanilla vs MCTS-All-prior_bonus_scale-4p0] seed=8 LOSS (turns=14, 33.4s)
+  [MCTS-Vanilla vs MCTS-All-prior_bonus_scale-4p0] seed=5 WIN (turns=23, 58.3s)
+  [Heuristic vs MCTS-All-prior_bonus_scale-4p0] seed=7 WIN (turns=79, 108.5s)
+  [Heuristic vs MCTS-All-prior_bonus_scale-4p0] seed=6 WIN (turns=122, 134.3s)
+  [Heuristic vs MCTS-All-prior_bonus_scale-4p0] seed=9 WIN (turns=200, 131.6s)
+  [Heuristic vs MCTS-All-prior_bonus_scale-4p0] seed=3 LOSS (turns=200, 164.5s)
+  [Heuristic vs MCTS-All-prior_bonus_scale-4p0] seed=4 LOSS (turns=200, 163.2s)
+  [Heuristic vs MCTS-All-prior_bonus_scale-4p0] seed=0 LOSS (turns=200, 175.9s)
+  [Heuristic vs MCTS-All-prior_bonus_scale-4p0] seed=8 LOSS (turns=186, 161.1s)
+  [Heuristic vs MCTS-All-prior_bonus_scale-4p0] seed=1 WIN (turns=200, 190.2s)
+  [MCTS-Vanilla vs MCTS-All-prior_bonus_scale-4p0] seed=3 WIN (turns=91, 147.9s)
+  [Heuristic vs MCTS-All-prior_bonus_scale-4p0] seed=5 LOSS (turns=200, 174.6s)
+  [Heuristic vs MCTS-All-prior_bonus_scale-4p0] seed=2 LOSS (turns=200, 192.3s)
+  [MCTS-Vanilla vs MCTS-All-prior_bonus_scale-4p0] seed=6 LOSS (turns=120, 140.1s)
+  [MCTS-Vanilla vs MCTS-All-prior_bonus_scale-4p0] seed=7 WIN (turns=197, 158.5s)
+  [MCTS-Vanilla vs MCTS-All-prior_bonus_scale-4p0] seed=1 LOSS (turns=160, 207.5s)
+  [MCTS-Vanilla vs MCTS-All-prior_bonus_scale-4p0] seed=0 LOSS (turns=153, 215.9s)
+  [MCTS-Vanilla vs MCTS-All-prior_bonus_scale-4p0] seed=9 LOSS (turns=200, 153.8s)
+  [MCTS-Vanilla vs MCTS-All-prior_bonus_scale-4p0] seed=4 LOSS (turns=200, 197.0s)
+  [MCTS-Vanilla vs MCTS-All-prior_bonus_scale-4p0] seed=2 LOSS (turns=200, 221.5s)
+
+Tournament completed: 60 games in 273s (4.5 min)
+
+======================================================================
+Agent                          ELO  TS-Conservative
+----------------------------------------------------------------------
+Heuristic                   1660.6           23.227
+MCTS-All-prior_bonus_scale-4p0   1604.4           19.498
+MCTS-Vanilla                1469.0           15.707
+Random                      1266.0            5.732
+======================================================================
+
+Overall win rates:
+Agent                       Wins  Games   WinRate
+--------------------------------------------------
+MCTS-All-prior_bonus_scale-4p0     23     30     76.7%
+Heuristic                     22     30     73.3%
+MCTS-Vanilla                  14     30     46.7%
+Random                         1     30      3.3%
+
+Pairwise win rates (row beat column):
+                   Heuristic  MCTS-All-pri  MCTS-Vanilla        Random
+     Heuristic           ---    4/10 (40%)    8/10 (80%)  10/10 (100%)
+  MCTS-All-pri    6/10 (60%)           ---    7/10 (70%)  10/10 (100%)
+  MCTS-Vanilla    2/10 (20%)    3/10 (30%)           ---    9/10 (90%)
+        Random     0/10 (0%)     0/10 (0%)    1/10 (10%)           ---
+[saved] experiment_runs/hyper_prior_bonus/prior_bonus_scale_4p0/game_records.csv
+[saved] experiment_runs/hyper_prior_bonus/prior_bonus_scale_4p0/ratings.csv
+[saved] experiment_runs/hyper_prior_bonus/prior_bonus_scale_4p0/metadata.json
+Loaded 60 game records, 4 agent ratings.
+Saving plots to experiment_runs/hyper_prior_bonus/prior_bonus_scale_4p0/plots/
+[saved] experiment_runs/hyper_prior_bonus/prior_bonus_scale_4p0/plots/win_rates.png
+[saved] experiment_runs/hyper_prior_bonus/prior_bonus_scale_4p0/plots/elo_ratings.png
+[saved] experiment_runs/hyper_prior_bonus/prior_bonus_scale_4p0/plots/turns_survived.png
+[WARN] No ablation ladder data found.
+[saved] experiment_runs/hyper_prior_bonus/prior_bonus_scale_4p0/plots/win_matrix.png
+[WARN] Not enough matchups for ELO progression plot.
+[saved] experiment_runs/hyper_prior_bonus/prior_bonus_scale_4p0/plots/survival_boxplot.png
+
+All plots saved.
+
+Round-robin: 4 agents, 6 matchups, 10 seeds = 60 games (workers=20)
+Dispatching 60 games across 20 workers...
+  [Random vs Heuristic] seed=4 LOSS (turns=2, 0.0s)
+  [Random vs Heuristic] seed=8 LOSS (turns=2, 0.0s)
+  [Random vs Heuristic] seed=7 LOSS (turns=12, 0.1s)
+  [Random vs MCTS-Vanilla] seed=1 LOSS (turns=2, 0.2s)
+  [Random vs Heuristic] seed=1 LOSS (turns=47, 0.3s)
+  [Random vs Heuristic] seed=9 LOSS (turns=57, 0.3s)
+  [Random vs Heuristic] seed=5 LOSS (turns=40, 0.3s)
+  [Random vs Heuristic] seed=0 LOSS (turns=56, 0.3s)
+  [Random vs Heuristic] seed=3 LOSS (turns=70, 0.4s)
+  [Random vs Heuristic] seed=6 LOSS (turns=68, 0.5s)
+  [Random vs MCTS-All-prior_bonus_scale-8p0] seed=0 LOSS (turns=2, 0.5s)
+  [Random vs Heuristic] seed=2 LOSS (turns=94, 0.5s)
+  [Random vs MCTS-All-prior_bonus_scale-8p0] seed=7 LOSS (turns=2, 0.5s)
+  [Random vs MCTS-Vanilla] seed=2 LOSS (turns=2, 1.0s)
+  [Random vs MCTS-All-prior_bonus_scale-8p0] seed=8 LOSS (turns=2, 0.7s)
+  [Random vs MCTS-All-prior_bonus_scale-8p0] seed=9 LOSS (turns=16, 13.1s)
+  [Random vs MCTS-All-prior_bonus_scale-8p0] seed=3 LOSS (turns=22, 16.3s)
+  [Random vs MCTS-Vanilla] seed=5 LOSS (turns=49, 25.1s)
+  [Random vs MCTS-Vanilla] seed=3 LOSS (turns=72, 31.9s)
+  [Random vs MCTS-Vanilla] seed=8 LOSS (turns=74, 34.9s)
+  [Random vs MCTS-Vanilla] seed=7 LOSS (turns=84, 36.7s)
+  [Random vs MCTS-Vanilla] seed=9 LOSS (turns=78, 37.5s)
+  [Random vs MCTS-All-prior_bonus_scale-8p0] seed=6 LOSS (turns=50, 44.1s)
+  [Random vs MCTS-Vanilla] seed=6 LOSS (turns=108, 52.4s)
+  [Random vs MCTS-Vanilla] seed=0 LOSS (turns=144, 56.1s)
+  [Random vs MCTS-All-prior_bonus_scale-8p0] seed=1 LOSS (turns=58, 60.2s)
+  [Random vs MCTS-All-prior_bonus_scale-8p0] seed=5 LOSS (turns=81, 64.7s)
+  [Heuristic vs MCTS-Vanilla] seed=4 WIN (turns=150, 64.5s)
+  [Heuristic vs MCTS-Vanilla] seed=5 LOSS (turns=90, 52.6s)
+  [Random vs MCTS-All-prior_bonus_scale-8p0] seed=4 LOSS (turns=88, 71.6s)
+  [Random vs MCTS-Vanilla] seed=4 LOSS (turns=137, 76.0s)
+  [Heuristic vs MCTS-Vanilla] seed=0 WIN (turns=189, 75.9s)
+  [Heuristic vs MCTS-Vanilla] seed=3 WIN (turns=154, 81.8s)
+  [Heuristic vs MCTS-Vanilla] seed=1 WIN (turns=200, 92.8s)
+  [Heuristic vs MCTS-Vanilla] seed=2 WIN (turns=200, 96.4s)
+  [Random vs MCTS-All-prior_bonus_scale-8p0] seed=2 LOSS (turns=84, 97.5s)
+  [MCTS-Vanilla vs MCTS-All-prior_bonus_scale-8p0] seed=1 WIN (turns=13, 31.5s)
+  [Heuristic vs MCTS-Vanilla] seed=6 LOSS (turns=173, 92.0s)
+  [Heuristic vs MCTS-Vanilla] seed=7 WIN (turns=144, 92.3s)
+  [Heuristic vs MCTS-All-prior_bonus_scale-8p0] seed=3 WIN (turns=51, 84.2s)
+  [Heuristic vs MCTS-Vanilla] seed=8 WIN (turns=200, 110.5s)
+  [Heuristic vs MCTS-Vanilla] seed=9 WIN (turns=200, 108.9s)
+  [Heuristic vs MCTS-All-prior_bonus_scale-8p0] seed=6 LOSS (turns=106, 106.0s)
+  [Heuristic vs MCTS-All-prior_bonus_scale-8p0] seed=8 WIN (turns=148, 132.8s)
+  [MCTS-Vanilla vs MCTS-All-prior_bonus_scale-8p0] seed=2 LOSS (turns=62, 138.5s)
+  [Heuristic vs MCTS-All-prior_bonus_scale-8p0] seed=7 WIN (turns=200, 161.6s)
+  [Heuristic vs MCTS-All-prior_bonus_scale-8p0] seed=9 WIN (turns=200, 157.4s)
+  [Heuristic vs MCTS-All-prior_bonus_scale-8p0] seed=2 WIN (turns=200, 187.5s)
+  [Heuristic vs MCTS-All-prior_bonus_scale-8p0] seed=5 LOSS (turns=200, 182.5s)
+  [Heuristic vs MCTS-All-prior_bonus_scale-8p0] seed=4 WIN (turns=200, 187.4s)
+  [Heuristic vs MCTS-All-prior_bonus_scale-8p0] seed=0 WIN (turns=199, 209.3s)
+  [MCTS-Vanilla vs MCTS-All-prior_bonus_scale-8p0] seed=7 WIN (turns=94, 138.9s)
+  [Heuristic vs MCTS-All-prior_bonus_scale-8p0] seed=1 LOSS (turns=200, 215.2s)
+  [MCTS-Vanilla vs MCTS-All-prior_bonus_scale-8p0] seed=8 LOSS (turns=200, 160.5s)
+  [MCTS-Vanilla vs MCTS-All-prior_bonus_scale-8p0] seed=4 LOSS (turns=200, 182.9s)
+  [MCTS-Vanilla vs MCTS-All-prior_bonus_scale-8p0] seed=6 WIN (turns=190, 180.3s)
+  [MCTS-Vanilla vs MCTS-All-prior_bonus_scale-8p0] seed=9 LOSS (turns=200, 153.7s)
+  [MCTS-Vanilla vs MCTS-All-prior_bonus_scale-8p0] seed=0 LOSS (turns=200, 218.2s)
+  [MCTS-Vanilla vs MCTS-All-prior_bonus_scale-8p0] seed=5 WIN (turns=200, 204.3s)
+  [MCTS-Vanilla vs MCTS-All-prior_bonus_scale-8p0] seed=3 LOSS (turns=200, 208.9s)
+
+Tournament completed: 60 games in 302s (5.0 min)
+
+======================================================================
+Agent                          ELO  TS-Conservative
+----------------------------------------------------------------------
+Heuristic                   1680.2           22.629
+MCTS-All-prior_bonus_scale-8p0   1567.7           18.508
+MCTS-Vanilla                1511.7           16.991
+Random                      1240.4            3.135
+======================================================================
+
+Overall win rates:
+Agent                       Wins  Games   WinRate
+--------------------------------------------------
+Heuristic                     25     30     83.3%
+MCTS-All-prior_bonus_scale-8p0     19     30     63.3%
+MCTS-Vanilla                  16     30     53.3%
+Random                         0     30      0.0%
+
+Pairwise win rates (row beat column):
+                   Heuristic  MCTS-All-pri  MCTS-Vanilla        Random
+     Heuristic           ---    7/10 (70%)    8/10 (80%)  10/10 (100%)
+  MCTS-All-pri    3/10 (30%)           ---    6/10 (60%)  10/10 (100%)
+  MCTS-Vanilla    2/10 (20%)    4/10 (40%)           ---  10/10 (100%)
+        Random     0/10 (0%)     0/10 (0%)     0/10 (0%)           ---
+[saved] experiment_runs/hyper_prior_bonus/prior_bonus_scale_8p0/game_records.csv
+[saved] experiment_runs/hyper_prior_bonus/prior_bonus_scale_8p0/ratings.csv
+[saved] experiment_runs/hyper_prior_bonus/prior_bonus_scale_8p0/metadata.json
+Loaded 60 game records, 4 agent ratings.
+Saving plots to experiment_runs/hyper_prior_bonus/prior_bonus_scale_8p0/plots/
+[saved] experiment_runs/hyper_prior_bonus/prior_bonus_scale_8p0/plots/win_rates.png
+[saved] experiment_runs/hyper_prior_bonus/prior_bonus_scale_8p0/plots/elo_ratings.png
+[saved] experiment_runs/hyper_prior_bonus/prior_bonus_scale_8p0/plots/turns_survived.png
+[WARN] No ablation ladder data found.
+[saved] experiment_runs/hyper_prior_bonus/prior_bonus_scale_8p0/plots/win_matrix.png
+[WARN] Not enough matchups for ELO progression plot.
+[saved] experiment_runs/hyper_prior_bonus/prior_bonus_scale_8p0/plots/survival_boxplot.png
+
+All plots saved.
+[saved] experiment_runs/hyper_prior_bonus/summary.csv
+[saved] experiment_runs/hyper_prior_bonus/prior_bonus_scale_sweep.png
+[saved] experiment_runs/hyper_iterations/summary.csv
+[saved] experiment_runs/hyper_iterations/iterations_sweep.png
+[saved] experiment_runs/hyper_rollout_depth/summary.csv
+[saved] experiment_runs/hyper_rollout_depth/rollout_depth_sweep.png
+[saved] experiment_runs/hyper_exploration/summary.csv
+[saved] experiment_runs/hyper_exploration/exploration_sweep.png
+[saved] experiment_runs/hyper_prior_bonus/summary.csv
+[saved] experiment_runs/hyper_prior_bonus/prior_bonus_scale_sweep.png

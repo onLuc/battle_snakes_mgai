@@ -1,0 +1,5 @@
+agent,elo,ts_mu,ts_sigma,ts_conservative
+Heuristic,1660.61,29.2247,1.9991,23.2274
+MCTS-All-prior_bonus_scale-4p0,1604.39,25.0136,1.8384,19.4985
+MCTS-Vanilla,1468.98,20.7702,1.6877,15.7071
+Random,1266.02,12.4454,2.2378,5.732

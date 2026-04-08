@@ -1,0 +1,4 @@
+run_dir,parameter_name,parameter_value,focus_agent,elo,ts_conservative,games,wins,win_rate,avg_survival,avg_final_length,avg_placement,game_cap_rate,vs_heuristic_win_rate,vs_mcts_vanilla_win_rate,vs_random_win_rate
+exploration_0p6,exploration,0.6,MCTS-All-exploration-0p6,1600.1,21.6143,30.0,20.0,0.6666666666666666,106.76666666666667,15.266666666666667,1.3333333333333333,0.16666666666666666,0.4,0.6,1.0
+exploration_1p05,exploration,1.05,MCTS-All-exploration-1p05,1552.07,17.9343,30.0,18.0,0.6,122.36666666666666,16.566666666666666,1.4,0.23333333333333334,0.3,0.6,0.9
+exploration_1p4,exploration,1.4,MCTS-All-exploration-1p4,1589.31,18.8428,30.0,22.0,0.7333333333333333,122.56666666666666,17.5,1.2666666666666666,0.2833333333333333,0.6,0.6,1.0
