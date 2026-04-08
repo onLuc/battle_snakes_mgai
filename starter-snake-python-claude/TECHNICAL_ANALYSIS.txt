@@ -1,830 +1,790 @@
 ================================================================================
-  BATTLESNAKE MGAI ASSIGNMENT 2 — COMPLETE TECHNICAL ANALYSIS
-  System Design, Heuristics, MCTS Improvements, and Ablation Results
+  BATTLESNAKE MGAI ASSIGNMENT 2 — UPDATED TECHNICAL ANALYSIS
+  Current implementation analysis for starter-snake-python-claude
 ================================================================================
 
 Authors      : Denominator
 Date         : April 2026
-Environment  : BattleSnake, hz_hazard_pits map, 11×11 board, 4 snakes
-Tournament   : 3 seeds × 9 matchups (small-scale, see caveats in §6)
+Codebase     : starter-snake-python-claude
+Primary mode : mcts
+Scope        : Current architecture and behaviour only
+Results      : Intentionally omitted in this document
 
 --------------------------------------------------------------------------------
 TABLE OF CONTENTS
 --------------------------------------------------------------------------------
-  §1  Game Overview and Simplifications
-  §2  State Representation
-  §3  The Heuristic System (agent_core.py)
-       §3.1  local_move_score — one-step safety and opportunity scoring
-       §3.2  evaluate_state   — deep positional evaluation
-       §3.3  heuristic_move   — how the two are combined
-  §4  Agent Variants
-  §5  MCTS Architecture and Improvements
-       §5.1  Vanilla MCTS baseline
-       §5.2  Improvement 1 — Prior-guided expansion
-       §5.3  Improvement 2 — PUCT selection (decaying prior bonus)
-       §5.4  Improvement 3 — Opponent-aware root scoring
-       §5.5  Improvement 4 — Heuristic rollouts
-       §5.6  Improvement 5 — RAVE / AMAF
-       §5.7  Improvement 6 — UCB1-Tuned
-  §6  Ablation Results (3-seed run)
-       §6.1  Raw match outcomes
-       §6.2  ELO and TrueSkill ratings
-       §6.3  Observations and interpretation
-       §6.4  Caveats about sample size
-  §7  How the Pieces Connect — End-to-End Flow
-  §8  Key Design Decisions and Trade-offs
-  §9  Known Weaknesses and Future Work
+  §1  Purpose and scope
+  §2  Current agent variants and entrypoints
+  §3  Internal state representation
+  §4  Core movement and simulation logic
+  §5  Heuristic system
+       §5.1  Legal move generation and fallback behaviour
+       §5.2  local_move_score
+       §5.3  evaluate_state
+       §5.4  mcts_evaluate_state
+       §5.5  heuristic_move_scores and heuristic_move
+       §5.6  rollout_move
+  §6  MCTS architecture
+       §6.1  Config structure and active presets
+       §6.2  Node structure
+       §6.3  Selection
+       §6.4  Expansion
+       §6.5  Opponent-aware root priors
+       §6.6  Rollout
+       §6.7  Backpropagation
+       §6.8  Final move choice and safety override
+  §7  Agent server flow
+  §8  Headless simulator and tournament tooling
+  §9  Key design choices reflected in the current code
+  §10 Known limitations and mismatches
+  §11 Results policy for this report
 
 ================================================================================
-§1  GAME OVERVIEW AND SIMPLIFICATIONS
+§1  PURPOSE AND SCOPE
 ================================================================================
 
-BattleSnake is a multiplayer, real-time snake game played on an 11×11 grid.
-Up to 4 snakes compete simultaneously. The goal is to survive longest while
-maximising length. The rules relevant to our agent:
+This document replaces the older technical analysis and describes the code as
+it exists now. The main objective is accuracy with respect to the current
+implementation, not historical intent.
 
-  - Each snake loses 1 HP per turn (starvation clock).
-  - Eating food resets HP to 100 and permanently grows length by 1.
-  - Moving into a wall, your own body, or another snake's body is instant death.
-  - Head-on collision: the longer snake survives; equal length both die.
-  - Hazard pits (hz_hazard_pits map): 4 pit clusters appear from turn 26.
-    Each cluster deals 14 × stack_count damage on head entry. Pits stack
-    every 25 turns to a maximum of 4 stacks, hold for 75 turns, then drain.
-  - Agents have 1000 ms per move (we use 920 ms to leave margin).
-  - Final score: 80% weight on survival, 20% on length.
+The analysis covers:
+  - How game state is represented internally
+  - How heuristic scoring works
+  - How Monte Carlo Tree Search is implemented
+  - Which improvements are available and which are active by default
+  - How local simulation and tournament tooling are wired
 
-SIMPLIFICATIONS we make in our agent (and why they are acceptable):
-
-  1. Single-agent MCTS: we run MCTS only for our snake. Opponent moves during
-     rollouts are modelled with a greedy heuristic (not a separate MCTS tree).
-     This saves memory and computation while still approximating opponent
-     behaviour far better than random movement.
-
-  2. Depth-limited rollouts: rollouts run for 8 steps, not to game termination.
-     Full rollouts would be too slow per move. 8 steps is enough to detect
-     starvation traps, body collisions, and food proximity.
-
-  3. Deterministic opponent modelling: we pick the top-2 most likely moves
-     per opponent (by heuristic score) and enumerate combinations. With 3
-     opponents this gives up to 2^3 = 8 joint scenarios — tractable.
-
-  4. No persistent tree: the MCTS tree is rebuilt from scratch each turn.
-     Reuse would require careful state hashing; the time budget is sufficient
-     to build a useful tree from scratch in 920 ms.
-
-  5. Hazard approximation in simulation: our headless simulator places pits
-     at fixed positions (quadrant centres) following the turn schedule. The
-     actual pit pattern may differ from the live server, but the key effect
-     (health drain on entry) is correctly modelled.
+This analysis does NOT present tournament outcomes, ablation tables, ELO
+rankings, or any new result claims. Those may exist elsewhere in the
+repository, but they are outside the scope of this updated write-up.
 
 ================================================================================
-§2  STATE REPRESENTATION
+§2  CURRENT AGENT VARIANTS AND ENTRYPOINTS
 ================================================================================
 
-Internally (agent_core.py) we store game state as a plain Python dict:
+The live entrypoint is main.py:
+
+  AGENT_MODE = os.environ.get("SNAKE_TACTIC", "mcts").strip().lower()
+
+So the default production path is the mode string "mcts".
+
+agent_server.py maps mode strings to behaviours:
+
+  random
+    Uniform random legal move.
+
+  heuristic
+    Pure heuristic policy based on heuristic_move().
+
+  mcts
+  mcts_all
+    Use ALL_IMPROVEMENTS_CONFIG.
+
+  mcts_vanilla
+    No priors, no opponent-aware root model, no heuristic rollouts,
+    no RAVE, no UCB1-Tuned.
+
+  mcts_heuristic_rollout
+    Adds only heuristic rollouts.
+
+  mcts_prior
+    Adds priors and PUCT-style prior bonus, but no opponent-aware root model.
+
+  mcts_opponent
+    Adds opponent-aware root priors on top of priors and heuristic rollouts.
+
+  mcts_rave
+    Enables RAVE in addition to priors, opponent-aware root scoring,
+    and heuristic rollouts.
+
+  mcts_ucb1_tuned
+    Enables UCB1-Tuned instead of standard UCB1 exploration.
+
+Important current detail:
+  The default contest path is "mcts", which resolves to ALL_IMPROVEMENTS_CONFIG.
+  In the current code, ALL_IMPROVEMENTS_CONFIG enables:
+    - prior-guided expansion
+    - PUCT-style prior bonus
+    - opponent-aware root scoring
+    - heuristic rollouts
+    - UCB1-Tuned
+  but NOT RAVE.
+
+This matters because older documentation described "all improvements" as if
+RAVE were active simultaneously. That is not true in the current code.
+
+================================================================================
+§3  INTERNAL STATE REPRESENTATION
+================================================================================
+
+agent_core.py converts the Battlesnake API JSON into a compact internal dict:
 
   state = {
-      "turn"   : int,                        # current turn number
-      "width"  : int,                        # board width  (11)
-      "height" : int,                        # board height (11)
-      "food"   : set of (x, y) tuples,       # food positions
-      "hazards": dict  {(x,y): stack_count}, # hazard pits + their severity
-      "snakes" : [                           # list of all living snakes
+      "turn": int,
+      "width": int,
+      "height": int,
+      "food": set[(x, y)],
+      "hazards": {(x, y): stack_count},
+      "snakes": [
           {
-              "id"    : str,                 # unique identifier
-              "name"  : str,
-              "health": int,                 # 0-100
-              "body"  : [(x,y), ...],        # head first; can have duplicates
-          }, ...
+              "id": str,
+              "name": str,
+              "health": int,
+              "body": [(x, y), ...],   # head first
+          },
+          ...
       ],
-      "you_id" : str,                        # ID of the controlled snake
+      "you_id": str,
   }
 
-WHY THIS FORMAT:
-  - Food and hazards are stored as sets/dicts with tuple keys, making
-    membership tests O(1) instead of O(n) list scans.
-  - Body segments as tuples are hashable, allowing them to be added to sets
-    for fast collision checking.
-  - Compared to the raw battlesnake API JSON (nested dicts with {"x":…,"y":…}
-    objects), this is significantly faster to work with per MCTS iteration.
+This representation is chosen for search speed:
+  - Food is a set for O(1) membership checks.
+  - Hazards are aggregated into a dictionary keyed by coordinate.
+  - Snake bodies are stored as tuples so they can participate in sets.
 
-The conversion from/to API format happens exactly once per turn:
-  API JSON  →  make_state_from_game()  →  internal state  →  agent logic
-  internal state  →  _internal_to_api()  →  API JSON (in headless simulation)
+make_state_from_game() performs the conversion once per top-level decision.
+MCTS and heuristic code then operate on this internal structure only.
 
-KEY HELPER: moving_body_cells(state)
-  Returns the set of all body cells that will still be occupied AFTER this
-  turn's moves. Tails that are about to move away are excluded unless the
-  snake just ate (in which case body[-1] == body[-2], meaning the tail
-  duplicates and stays). This is the primary "blocked" set for legal move
-  checking, and it correctly handles the tail-moving edge case that many
-  simpler implementations get wrong.
+The most important helper tied to representation is moving_body_cells(state).
+It returns the cells that remain occupied for the next step, excluding a tail
+that will move away unless the snake has just grown. This is critical because
+tail-motion handling determines whether a move is truly legal.
 
 ================================================================================
-§3  THE HEURISTIC SYSTEM (agent_core.py)
+§4  CORE MOVEMENT AND SIMULATION LOGIC
 ================================================================================
 
-The heuristic system has two layers: a LOCAL scorer (single move safety and
-immediate opportunity) and a DEEP evaluator (positional quality of a state).
-These two layers are combined in different ways for different purposes.
+The codebase centralises movement semantics in agent_core.py rather than
+duplicating rules inside the heuristic and MCTS modules.
 
-────────────────────────────────────────────────────────────────────────────────
-§3.1  local_move_score — one-step safety and opportunity
-────────────────────────────────────────────────────────────────────────────────
+Important helpers:
 
-Called once per candidate move direction. Returns -inf for immediately
-illegal/fatal moves, or a numeric score capturing strategic value.
+  add_move(pos, move_name)
+    Applies one of {"up","down","left","right"} to a coordinate.
 
-HARD FILTERS (return -inf immediately):
-  - Out of bounds
-  - Into any occupied body cell (own or opponent), adjusted for tail movement
-  - Health would reach ≤ 0 after accounting for food/hazard effects
+  in_bounds(pos, width, height)
+    Board boundary test.
 
-SCORING COMPONENTS (additive):
+  get_snake(state, snake_id)
+    Fetches a snake dict from state.
 
-  1. FLOOD FILL SPACE  (+4.0 per reachable cell)
-     After making the move, how many cells can we reach? This is the most
-     important component — it prevents the snake from boxing itself into
-     small pockets. If reachable < current length, we add a heavy penalty
-     (−120 − 18 × shortfall) because we literally cannot fit ourselves.
+  get_legal_moves(state, snake_id)
+    Generates legal moves by:
+      1. Building occupied cells with moving_body_cells()
+      2. Removing the controlled snake's own tail
+      3. Rejecting out-of-bounds and occupied destinations
 
-  2. OPEN NEIGHBOURS  (+8.0 per open adjacent cell)
-     How many of the destination cell's 4 neighbours are free? This rewards
-     moves into open intersections and penalises tight corridors.
+  advance_state(state, planned_moves=None, stochastic=False)
+    Applies one full simultaneous turn.
 
-  3. ENEMY HEAD ZONES  (±150 / ±20)
-     We precompute all cells that any opponent's head could reach in one step.
-     - If a larger/equal-length enemy can reach our destination: −150 (huge
-       penalty, we might die next turn from head collision).
-     - If a shorter enemy could reach our destination: +20 (we would win that
-       head-on; mild incentive to chase smaller snakes).
+advance_state() is the transition function used by both heuristic lookahead and
+MCTS. Its behaviour is important:
 
-  4. FOOD ATTRACTION  (+25 / +70 / +120, urgency-scaled)
-     Bonus for moving onto food. Urgency increases as HP drops:
-       HP < 35 → +120   (emergency, food is life)
-       HP < 60 → +70    (moderately urgent)
-       HP ≥ 60 → +25    (low priority, grow opportunistically)
-     Food distance also applies a continuous penalty (next point).
+  1. Every living snake receives a move.
+     - The controlled snake may receive a forced move via planned_moves.
+     - Unspecified snakes use choose_greedy_move().
 
-  5. FOOD DISTANCE URGENCY  (−dist × urgency_factor)
-     Beyond the food-landing bonus, moving farther from the nearest food is
-     penalised proportionally to urgency:
-       HP < 25 → factor 3.5  (critical starvation danger)
-       HP < 50 → factor 1.8  (moderate urgency)
-       HP ≥ 50 → factor 0.5  (weak pull toward food)
+  2. New heads are inserted simultaneously.
 
-  6. HAZARD PENALTY  (−35 × stacks, −max(0, 45 − post_health))
-     Moving into a hazard cell costs 35 per stack level plus an additional
-     health-dependent penalty if we're already low. This discourages entering
-     hazards when vulnerable, but doesn't make them completely off-limits.
+  3. Food handling is resolved.
+     - If a snake enters food, its health becomes 100 and its tail does not pop.
+     - Otherwise health decreases by 1 and the tail advances.
 
-  7. CENTRE GRAVITY  (−manhattan_dist_to_centre)
-     A small bias toward the board centre. Central positions give more routing
-     options, so we weakly prefer them when all else is equal.
+  4. Hazard damage is applied after the move.
+     - Damage is 14 × stack_count for the head cell.
 
-  8. ENEMY PROXIMITY  (±(3-dist) × 16 / × 8)
-     For enemies within Manhattan distance 2 of the destination:
-     - Larger/equal enemy nearby: −(3−dist)×16 (avoid being adjacent to a
-       snake that can eat us)
-     - Smaller enemy nearby: +(3−dist)×8 (mild incentive to chase prey)
+  5. Deaths are resolved.
+     - Out-of-bounds and health <= 0
+     - Head-to-head collisions by length
+     - Head into any body segment
 
-INTUITION: local_move_score is the "does this move immediately make sense?"
-filter. It combines escape-room awareness (flood fill), collision avoidance,
-and food hunger in one fast pass. It runs in O(board_area) per move.
+  6. Dead snakes are removed, eaten food is removed, and turn increments.
 
-────────────────────────────────────────────────────────────────────────────────
-§3.2  evaluate_state — deep positional evaluation
-────────────────────────────────────────────────────────────────────────────────
-
-Called on a state (not a move), returns a single quality score. Used as
-the terminal/leaf evaluation function inside MCTS rollouts.
-
-TERMINAL SHORTCUTS:
-  - Snake is dead: return −1,000,000
-  - Snake is the only survivor: return +1,000,000 + length×100 + health
-    (winning bonus scales with length, rewarding length even in won positions)
-
-SCORING COMPONENTS:
-
-  1. BASE OFFSET  (+260.0)
-     Ensures the score is always positive for living snakes in contested games,
-     making comparisons straightforward.
-
-  2. LENGTH  (+35.0 per body segment)
-     Length is the primary win condition (used in score tiebreaking). A longer
-     snake also wins head-on collisions, so length is strategically valuable.
-
-  3. HEALTH  (+1.2 per HP)
-     Low health is dangerous. This term makes the snake value staying healthy,
-     complementing the food-urgency terms in local_move_score.
-
-  4. FLOOD FILL AREA  (+6.0 per reachable cell)
-     Same idea as in local_move_score but applied to the whole state. Measures
-     how much of the board we can actually reach. This is the key "am I
-     trapped?" signal — a snake in a large open area scores much higher than
-     one boxed into a corner.
-
-  5. SAFE MOVES COUNT  (+22.0 per legal move)
-     How many directions can we legally go from here? Having 3-4 options is
-     much safer than having 1-2. This strongly discourages entering dead ends.
-
-  6. TERRITORY  (+4.0 per dominated cell)
-     A Voronoi-style computation: we do a BFS from our head and from each
-     enemy head simultaneously. A cell counts as "ours" if we reach it first
-     (strictly), or as a contested half-cell (0.2 points) if tied. Territory
-     quantifies spatial dominance — which parts of the board are ours to
-     exploit. Computed up to depth 24 cells from each head.
-
-  7. FOOD URGENCY  (−dist × scaling, as in local_move_score but stronger)
-     Three tiers: HP<20 (−14×dist), HP<45 (−6×dist), HP≥45 (−1.2×dist).
-     Much stronger coefficients than local_move_score because evaluate_state
-     is used to assess multi-step positions where food proximity matters more.
-
-  8. HAZARD PENALTY  (−55 × stacks if head is in hazard)
-     If we are currently in a hazard, the position is dangerous.
-
-  9. ENEMY PROXIMITY  (same sign/direction as local_move_score)
-
-INTUITION: evaluate_state is "how good is this board position overall?"
-It weights survival factors (area, safe moves), growth factors (length), and
-strategic position (territory) together. It is deliberately more expensive
-than local_move_score — it calls flood_fill once (O(area)) and territory_score
-(O(area × n_snakes)) — but it is only called at the END of each MCTS rollout,
-not at every step.
-
-────────────────────────────────────────────────────────────────────────────────
-§3.3  heuristic_move — how the two layers combine
-────────────────────────────────────────────────────────────────────────────────
-
-heuristic_move_scores(state, snake_id) computes a score for each legal move:
-
-  total_score(move) = local_move_score(state, move)
-                    + 0.85 × evaluate_state(next_state, snake_id)
-
-Where next_state is the state after applying that move (with all opponents
-using their own greedy moves, computed deterministically).
-
-ADDITIONAL CORRECTIONS:
-  - If the snake is dead in next_state: total = −inf (hard block)
-  - If no legal moves exist from next_state: total −= 180 (dead-end penalty)
-  - If an opponent dies in next_state: total += 50 (kill bonus)
-
-The 0.85 discount factor prevents over-weighting the one-step-ahead state
-relative to the immediate move safety.
-
-The final heuristic agent simply picks argmax(total_score). No tree search.
-This makes it O(n_moves × O(board)) per turn — extremely fast, under 5 ms.
+This makes advance_state() the single most important shared rules engine in the
+repository.
 
 ================================================================================
-§4  AGENT VARIANTS
+§5  HEURISTIC SYSTEM
 ================================================================================
 
-All agents are implemented in agent_server.py / random_main.py / etc.
-They share the same agent_core.py heuristics.
+The heuristic policy is layered rather than single-stage:
+  - local_move_score() evaluates immediate move safety and tactical value.
+  - evaluate_state() evaluates a resulting position more globally.
+  - heuristic_move_scores() combines the two.
+  - rollout_move() is a lighter-weight variant used during MCTS rollouts.
 
-  RANDOM
-    Picks a uniformly random legal move. No heuristic. Baseline floor.
-    Why it is useful: shows the minimum performance and isolates the effect
-    of any intelligent decision-making.
+------------------------------------------------------------------------------
+§5.1  Legal move generation and fallback behaviour
+------------------------------------------------------------------------------
 
-  HEURISTIC
-    Runs heuristic_move_scores() and picks the best move. No tree search.
-    This is a strong greedy baseline — very fast (< 5 ms), no lookahead
-    beyond one step + opponent simulation. Surprisingly competitive because
-    the evaluation function is well-tuned.
+If no legal moves are available, fallback_move() returns the first in-bounds
+direction in MOVE_ORDER, or "up" as a last resort.
 
-  MCTS-Vanilla (random rollouts, no priors, no opponent model)
-    Standard vanilla MCTS: UCB1 selection, uniform random expansion, uniform
-    random rollouts. No heuristic guidance at any stage.
+This fallback is intentionally simple. It is not a strategic policy; it is a
+safety net for malformed or terminal states so the agent always returns a move.
 
-  MCTS-HeurRollout (+ heuristic rollouts)
-    Adds improvement 4 only. Rollouts use rollout_move() which picks from
-    the top-scoring moves in local_move_score rather than uniformly random.
+------------------------------------------------------------------------------
+§5.2  local_move_score
+------------------------------------------------------------------------------
 
-  MCTS-Prior (+ prior-guided expansion + PUCT)
-    Adds improvements 1 and 2. Expansion order and selection bonus guided
-    by heuristic_move_scores().
+local_move_score(state, snake_id, move_name) is the first tactical filter.
+It returns negative infinity for immediately fatal actions and a numeric score
+for legal actions.
 
-  MCTS-Opponent (+ opponent-aware root scoring)
-    Adds improvement 3. Root move scores are computed as a minimax blend
-    over opponent response combinations.
+Hard invalidation:
+  - Destination out of bounds
+  - Destination inside occupied cells after tail adjustment
+  - Post-move health <= 0 after hunger and hazard damage
+  - Zero reachable area after the move
 
-  MCTS-RAVE (+ RAVE/AMAF)
-    Adds improvement 5 on top of MCTS-Opponent. RAVE statistics accelerate
-    early tree convergence.
+Scoring terms in the current implementation:
 
-  MCTS-UCB1Tuned (+ variance-aware exploration)
-    Adds improvement 6 on top of MCTS-Opponent. Replaces the constant UCB1
-    exploration term with a variance-sensitive version.
+  1. Reachable space
+     score += reachable * 4.0
+     reachable is computed by flood_fill() from the destination after marking
+     the old head as occupied. This is the main anti-trap signal.
 
-  MCTS-All (all 6 improvements active)
-    The contest agent (teamname.py). Uses ALL_IMPROVEMENTS_CONFIG.
+  2. Too-small pocket penalty
+     if reachable < snake_length:
+       score -= 120 + 18 * shortfall
+     This heavily penalises entering a region that cannot physically contain
+     the full snake body.
+
+  3. Enemy head zones
+     If an enemy of length >= ours can also reach the destination in one move:
+       score -= 150
+     If the enemy is shorter:
+       score += 20
+     enemy_head_zones() precomputes one-step opponent head reachability.
+
+  4. Open neighbours
+     score += 8 * open_neighbors
+     This prefers squares with multiple exits over narrow corridors.
+
+  5. Hazard penalty
+     score -= 35 * hazard_stacks
+     score -= max(0, 45 - post_health)
+     Hazards are discouraged, especially when health becomes low.
+
+  6. Direct food bonus
+     If moving onto food:
+       health < 35  -> +120
+       health < 60  -> +70
+       else         -> +25
+
+  7. Food distance penalty
+     food_dist = nearest_food_distance(state, snake_id)
+     urgency is:
+       3.5 if health < 25
+       1.8 if health < 50
+       0.5 otherwise
+     score -= food_dist * urgency
+
+  8. Centre bias
+     score -= Manhattan distance from board centre
+     This is a weak positional tie-breaker toward central mobility.
+
+  9. Enemy proximity
+     Within Manhattan distance <= 2:
+       - larger/equal enemies create a penalty
+       - smaller enemies create a smaller positive chase incentive
+
+Operationally, local_move_score() answers:
+  "If I take this move right now, does it keep me alive and tactically sane?"
+
+------------------------------------------------------------------------------
+§5.3  evaluate_state
+------------------------------------------------------------------------------
+
+evaluate_state(state, snake_id) is the heavier positional evaluator used by
+the heuristic policy for one-step lookahead.
+
+Terminal shortcuts:
+  - Dead: return -1_000_000.0
+  - Sole survivor: return 1_000_000.0 + length * 100 + health
+
+Non-terminal scoring terms:
+
+  1. Constant living offset
+     +260.0
+
+  2. Length
+     +35.0 per body segment
+
+  3. Health
+     +1.2 per HP
+
+  4. Flood-fill area
+     +6.0 per reachable cell
+
+  5. Safe-move count
+     +22.0 per legal move
+
+  6. Territory
+     +4.0 per territory_score unit
+
+territory_score() is a Voronoi-like estimate:
+  - Compute our BFS distance map
+  - Compute one BFS map per enemy
+  - A cell scores 1.0 if we reach it strictly earlier than all enemies
+  - A tied cell scores 0.2
+  - Search depth is capped at 24
+
+Additional penalties and bonuses:
+  - Food distance is penalised with stronger urgency than in local_move_score
+  - Hazard occupancy penalises the current head cell
+  - Larger nearby enemies penalise the state
+  - Smaller nearby enemies create a positive pressure to attack
+
+evaluate_state() is therefore more strategic than local_move_score():
+  it values space control, future mobility, and territorial dominance.
+
+------------------------------------------------------------------------------
+§5.4  mcts_evaluate_state
+------------------------------------------------------------------------------
+
+mcts_evaluate_state(state, snake_id) is a separate evaluator specifically tuned
+for MCTS rollouts. This is an important current-code distinction.
+
+Unlike evaluate_state(), it is normalised and clamped to [-1.0, 1.0].
+
+Terminal values:
+  - Dead -> -1.0
+  - Sole survivor -> +1.0
+
+Major design differences from evaluate_state():
+
+  1. Relative length matters more explicitly
+     The score includes both:
+       - absolute length bonus
+       - pairwise length-difference terms against each opponent
+     This makes MCTS reward growth and matchup advantage, not just survival.
+
+  2. Board features are scaled as fractions
+     Reachable area and territory are divided by board_area.
+     This keeps the reward bounded and stable for tree search.
+
+  3. Food remains important even when health is high
+     Distance to food is always penalised, with stronger urgency at low health
+     but still a non-zero incentive when healthy.
+
+  4. Health and hazard terms are small but continuous
+     The reward stays smooth rather than dominated by large raw constants.
+
+This function is what the MCTS tree ultimately tries to maximise.
+The heuristic and MCTS policies are therefore related, but not identical.
+
+------------------------------------------------------------------------------
+§5.5  heuristic_move_scores and heuristic_move
+------------------------------------------------------------------------------
+
+heuristic_move_scores(state, snake_id) combines immediate and one-step future
+evaluation:
+
+  total(move) =
+      local_move_score(state, snake_id, move)
+      + 0.85 * evaluate_state(next_state, snake_id)
+
+where next_state is generated by:
+
+  advance_state(state, planned_moves={snake_id: move}, stochastic=False)
+
+This means opponents are not frozen. Unspecified opponents are advanced using
+their own greedy choices through choose_greedy_move().
+
+Additional corrections:
+  - If our snake dies in next_state, total = -inf
+  - If next_state leaves us with zero legal moves, total -= 180
+  - If the number of living snakes decreases, total += 50
+
+choose_heuristic_move() then selects the argmax over these totals.
+heuristic_move(game_state) is the API-level wrapper used by the heuristic mode.
+
+------------------------------------------------------------------------------
+§5.6  rollout_move
+------------------------------------------------------------------------------
+
+rollout_move(state, snake_id) is the light rollout policy used by MCTS when
+heuristic rollouts are enabled.
+
+It does NOT call evaluate_state().
+Instead it:
+  1. Scores legal moves with local_move_score()
+  2. Sorts them
+  3. Builds a shortlist of moves within 18 points of the best
+  4. Chooses randomly from that shortlist
+
+This is a compromise between two extremes:
+  - purely random rollouts, which are cheap but noisy
+  - fully deterministic greedy rollouts, which are informative but can become
+    overly biased and reduce search diversity
 
 ================================================================================
-§5  MCTS ARCHITECTURE AND IMPROVEMENTS
+§6  MCTS ARCHITECTURE
 ================================================================================
 
-MCTS runs for up to 920 ms per turn (configurable via MCTS_BUDGET env var).
-The tree is rooted at the current game state; nodes represent states; edges
-represent our snake's moves.
+The MCTS implementation lives in MCTS.py and is controlled by the MCTSConfig
+dataclass. The live wrapper is mcts_move().
 
-────────────────────────────────────────────────────────────────────────────────
-§5.1  Vanilla MCTS baseline
-────────────────────────────────────────────────────────────────────────────────
+------------------------------------------------------------------------------
+§6.1  Config structure and active presets
+------------------------------------------------------------------------------
 
-Each iteration:
-  1. SELECTION: descend from root via UCB1 until a non-fully-expanded node.
-     UCB1(child) = V/N + C × sqrt(ln(parent_N) / N)
-     where V = cumulative value, N = visits, C = exploration constant.
+MCTSConfig fields:
 
-  2. EXPANSION: randomly pick one untried move; create child node.
+  use_priors: bool = True
+  prior_bonus_scale: float = 4.0
+  puct_decay: bool = True
 
-  3. SIMULATION (rollout): from the new node, play random moves for 8 steps.
-     Evaluate with evaluate_state(); return that reward.
+  use_opponent_model: bool = True
+  minimax_top_n: int = 2
 
-  4. BACKPROPAGATION: walk up the tree adding the reward to every ancestor's
-     V and incrementing all N values.
+  use_heuristic_rollout: bool = True
+  rollout_depth: int = 8
 
-After the time budget, pick the child of root with highest V/N.
+  use_rave: bool = False
+  rave_k: float = 500.0
 
-The core ASSUMPTION baked into vanilla MCTS here: opponent moves during
-rollouts are chosen by the greedy heuristic (choose_greedy_move), not
-uniformly random. This is already an implicit improvement over true vanilla
-because our advance_state() function uses greedy choices for unplanned snakes.
-All our named improvements are layered on top of this baseline.
+  use_ucb1_tuned: bool = False
+  exploration: float = 1.05
 
-────────────────────────────────────────────────────────────────────────────────
-§5.2  Improvement 1 — Prior-guided expansion (Expansion stage)
-────────────────────────────────────────────────────────────────────────────────
+Preset summary:
 
-WHAT CHANGES: When a node is first created, instead of storing untried moves
-in random order, we call heuristic_move_scores() and sort moves best-first.
-Expansion always pops from the front — so we try the heuristically best move
-first, then the second-best, etc.
+  VANILLA_CONFIG
+    All optional improvements disabled.
 
-WHY IT HELPS: With limited iterations (100–500 in 920 ms), there may not be
-time to fully expand every node. By trying good moves first, the early
-iterations immediately explore the most promising branches. The tree grows
-in the right direction faster.
+  HEURISTIC_ROLLOUT_CONFIG
+    Rollouts guided, but no priors and no opponent-aware root priors.
 
-INTUITION: Imagine you have 5 minutes to explore a maze. Would you pick
-corridors randomly, or use a rough map to pick the most promising corridor
-first? Prior-guided expansion is that rough map.
+  PRIOR_GUIDED_CONFIG
+    Priors + heuristic rollouts.
 
-COST: One call to heuristic_move_scores() per node creation. This is O(moves
-× board_area) — fast but not negligible. For a fully expanded tree this cost
-is paid upfront; for deep trees it only applies to newly created nodes.
+  OPPONENT_AWARE_CONFIG
+    Priors + opponent-aware root priors + heuristic rollouts.
 
-────────────────────────────────────────────────────────────────────────────────
-§5.3  Improvement 2 — PUCT selection (Selection stage)
-────────────────────────────────────────────────────────────────────────────────
+  RAVE_CONFIG
+    Opponent-aware priors + heuristic rollouts + RAVE.
 
-WHAT CHANGES: The UCB1 selection formula gains a prior bonus term:
+  UCB1_TUNED_CONFIG
+    Opponent-aware priors + heuristic rollouts + UCB1-Tuned.
 
-  score(child) = V/N  +  C × sqrt(ln(parent_N) / N)  +  prior_bonus
+  ALL_IMPROVEMENTS_CONFIG
+    Priors + opponent-aware priors + heuristic rollouts + UCB1-Tuned
+    with use_rave=False.
 
-Where:
-  prior_bonus = normalised_prior × prior_weight / (1 + N)
+Current default:
+  "mcts" -> ALL_IMPROVEMENTS_CONFIG
 
-The normalised_prior maps the heuristic score into [0, 1] using min-max
-scaling across the siblings. prior_weight = 18.0. The /( 1+N) decay means
-the bonus shrinks to near-zero once a child has been visited many times
-— at that point the empirical V/N takes over from the prior.
+Time budget:
+  If max_iterations is not supplied, mcts_move() reads MCTS_BUDGET from the
+  environment and defaults to 0.92 seconds.
 
-WHY IT HELPS: PUCT (Polynomial Upper Confidence Trees, as used in AlphaGo)
-combines exploration with prior knowledge. Early in the search, the prior
-bonus pulls selection toward heuristically strong moves even before we have
-empirical evidence. Later, the empirical average takes over. This bridges
-the gap between pure heuristic (no search) and pure search (no domain
-knowledge) by spending more iterations on promising branches.
+------------------------------------------------------------------------------
+§6.2  Node structure
+------------------------------------------------------------------------------
 
-INTUITION: The prior is an "initial recommendation" from the heuristic.
-MCTS respects it heavily early on, then gradually decides for itself as
-evidence accumulates. This is similar to how a chess player follows known
-opening theory early, then relies on calculation as the game becomes unique.
+Each Node stores:
+  - state
+  - snake_id
+  - parent
+  - move that led to this node
+  - children
+  - priors per move
+  - untried_moves ordered by descending prior
+  - visits
+  - value
+  - value_sq
+  - rave_visits
+  - rave_value
 
-KEY DIFFERENCE FROM IMPROVEMENT 1: Improvement 1 controls which moves are
-tried first during EXPANSION. Improvement 2 controls which already-expanded
-children are SELECTED during fully-expanded nodes. They work at different
-stages and are complementary.
+value_sq exists specifically for UCB1-Tuned, because that selection formula
+requires an empirical variance estimate.
 
-────────────────────────────────────────────────────────────────────────────────
-§5.4  Improvement 3 — Opponent-aware root scoring (Selection stage)
-────────────────────────────────────────────────────────────────────────────────
+For non-root children, priors are intentionally cheap:
+  the code does not call heuristic_move_scores() for every child node.
+  Instead it assigns 0.0 priors to legal moves. This is an explicit
+  performance trade-off to preserve iteration count.
 
-WHAT CHANGES: At the ROOT only (before building the tree), we compute
-a more sophisticated prior for our snake's moves:
+------------------------------------------------------------------------------
+§6.3  Selection
+------------------------------------------------------------------------------
 
-  opponent_aware_root_score(move) =
-      0.55 × worst_case_value
-    + 0.30 × average_case_value
-    + 0.15 × median_case_value
+tree_policy() walks down the tree until it finds:
+  - a non-fully-expanded node, or
+  - a terminal node
 
-Where the "cases" enumerate opponent response combinations.
+When a node is fully expanded, selection uses Node.best_child().
 
-Specifically:
-  - For each opponent, we compute the top-2 moves by heuristic score.
-  - We enumerate all combinations (Cartesian product, capped at 6 combos).
-  - For each combination, we advance the state by one step with our move
-    AND all opponents' assumed moves, then call evaluate_state().
-  - The 0.55/0.30/0.15 weighting is minimax-inspired: heavy emphasis on the
-    worst case (we must survive against adversarial play), moderate weight
-    on expected value, and a small median bonus.
+Base exploit term:
+  exploit = child.value / child.visits
 
-This gives us an OPPONENT-AWARE prior that is used in place of the pure
-heuristic_move_scores() for the root node only.
+Exploration:
+  Standard UCB:
+    exploration * sqrt(log(parent_visits) / child_visits)
 
-WHY IT HELPS: The single-step heuristic doesn't model how opponents will
-react. A move might look great in isolation but lead to a terrible position
-once the opponent responds. Root scoring accounts for this adversarial
-structure, steering MCTS toward moves that are robust to opponent play.
+UCB1-Tuned alternative:
+  variance = value_sq / n - exploit^2
+  tuned = variance + sqrt(2 * log(parent_visits) / n)
+  explore = exploration * sqrt(log(parent_visits) / n * min(0.25, tuned))
 
-INTUITION: Think of it as a "pre-flight check" before the MCTS tree grows.
-Before committing to a search direction, we simulate all plausible opponent
-reactions and pick moves that perform well across all scenarios, not just
-the best-case scenario.
+Prior bonus:
+  If use_priors is enabled, the parent's prior scores are min-max normalised
+  over siblings and added as:
 
-WHY ONLY AT THE ROOT: Computing this for every node would be prohibitively
-expensive. At depth 1 and beyond, we rely on MCTS to average over the
-stochastic opponent behaviour encoded in advance_state()'s greedy moves.
+    norm_prior * prior_bonus_scale / (1 + n)
 
-────────────────────────────────────────────────────────────────────────────────
-§5.5  Improvement 4 — Heuristic rollouts (Simulation stage)
-────────────────────────────────────────────────────────────────────────────────
+if puct_decay is True.
 
-WHAT CHANGES: During rollouts, instead of picking moves uniformly at random
-from legal moves, we call rollout_move() which:
-  1. Scores each legal move with local_move_score()
-  2. Takes all moves within 18 points of the best score as a "shortlist"
-  3. Picks randomly from the shortlist
+This is PUCT-like behaviour rather than textbook UCT. The heuristic prior has
+its strongest effect early and decays as empirical visit counts rise.
 
-WHY IT HELPS: Random rollouts waste iterations exploring obviously bad moves
-(e.g., moving into a dead end, ignoring food when starving). Heuristic
-rollouts are biased toward sensible play, so the sampled outcomes better
-reflect what would actually happen if both players played reasonably. The
-shortlist randomisation preserves stochasticity (important for MCTS coverage)
-while eliminating clearly inferior moves.
+RAVE blend:
+  If use_rave is enabled and RAVE stats exist for the move, exploit becomes a
+  blend between empirical exploit and AMAF exploit using:
 
-INTUITION: If you ask a random person to play chess for you, the rollout will
-be noise. If you ask someone who knows the basics (don't hang pieces, control
-the centre), the rollout better approximates real game outcomes. The heuristic
-is our "knows the basics" constraint.
+    beta = sqrt(rave_k / (3 * n + rave_k))
 
-KEY SUBTLETY: The rollout function returns (reward, moves_made_list). The
-moves_made_list is needed for the RAVE improvement (§5.6). Without tracking
-moves here, RAVE cannot work.
+In the current default configuration, this branch is disabled.
 
-────────────────────────────────────────────────────────────────────────────────
-§5.6  Improvement 5 — RAVE / AMAF (Backpropagation + Selection stages)
-────────────────────────────────────────────────────────────────────────────────
+------------------------------------------------------------------------------
+§6.4  Expansion
+------------------------------------------------------------------------------
 
-WHAT IS RAVE: Rapid Action Value Estimation, based on the All Moves As First
-(AMAF) heuristic (Rimmel et al. 2011, cited as [3] in the assignment).
+expand() pops the first move from untried_moves, which are already ordered by
+descending prior score.
 
-CORE IDEA: If move m led to a good outcome anywhere in the rollout, it is
-probably a good move from any position in the tree where it is legal.
-This is an approximation — position matters in general — but it is often
-correct enough to accelerate tree convergence.
+The next state is produced by:
 
-HOW IT WORKS:
+  advance_state(
+      self.state,
+      planned_moves={self.snake_id: move_name},
+      stochastic=True,
+  )
 
-  Storage: each node maintains two dicts:
-    rave_visits[move] = count of simulations through this node where move
-                        appeared anywhere in the subsequent rollout.
-    rave_value[move]  = sum of rewards from those simulations.
+The stochastic flag matters because unplanned snakes then choose moves via
+choose_greedy_move(..., stochastic=True), which introduces randomness among
+near-top heuristic actions. This increases variation during search.
 
-  Backpropagation: after each rollout, walk up the tree from the leaf. At
-  each ancestor node, for every move m that appeared in the rollout path,
-  increment rave_visits[m] and add the reward to rave_value[m].
-  This is the "All Moves As First" part — we credit every move in the
-  rollout to every ancestor, as if that move could have been played first.
+------------------------------------------------------------------------------
+§6.5  Opponent-aware root priors
+------------------------------------------------------------------------------
 
-  Selection: at each node, the RAVE blended score for a child is:
+The root can receive more expensive priors than internal nodes.
 
-    beta = sqrt(rave_k / (3 × N_child + rave_k))
-    RAVE_exploit = rave_value[child.move] / rave_visits[child.move]
-    blended_exploit = (1 − beta) × UCT_exploit + beta × RAVE_exploit
+likely_moves_for_snake(state, snake_id, top_n=2):
+  - score the opponent's legal moves with heuristic_move_scores()
+  - keep up to two plausible moves, with score-window filtering
 
-  Where rave_k = 500.0. Beta starts near 1.0 (trust RAVE heavily when few
-  visits) and decays toward 0.0 (trust UCT more as empirical evidence grows).
+opponent_joint_responses(state, snake_id, max_joint=6):
+  - build the Cartesian product of those opponent move sets
+  - keep the highest-scoring joint responses, capped at 6 combinations
 
-WHY IT HELPS: Early in the search, we have very few visits per node. V/N is
-noisy and unreliable. RAVE provides a cheap "cross-game" signal: moves that
-consistently appear in good rollouts are probably good, even from states we've
-rarely visited. This is especially useful in BattleSnake where the state space
-is large and we have <1 second per turn.
+opponent_aware_root_scores(state, snake_id):
+  For each of our legal root moves:
+    1. Simulate that move against each joint opponent response
+    2. Evaluate the resulting state with mcts_evaluate_state()
+    3. Aggregate scenario values as:
 
-INTUITION: Imagine you're playing many chess games and notice that "queen to
-d5" tends to appear in your wins. RAVE says: use that observation as evidence
-that d5 is a good square for the queen, even in positions you've never seen
-exactly before. As you play more games in each specific position, you rely
-less on this cross-game signal and more on position-specific data.
+       0.55 * worst
+       + 0.30 * average
+       + 0.15 * median
 
-RELATIONSHIP TO IMPROVEMENT 4: RAVE needs the moves_made_list from the
-rollout. Heuristic rollouts (improvement 4) provide this list. Together,
-RAVE's cross-simulation signal is based on heuristically-guided play, making
-the signal higher quality than if built from random rollouts.
+This is not full minimax search. It is a one-step adversarial robustness
+estimate used only to shape the root priors before the tree search begins.
 
-────────────────────────────────────────────────────────────────────────────────
-§5.7  Improvement 6 — UCB1-Tuned (Selection stage)
-────────────────────────────────────────────────────────────────────────────────
+------------------------------------------------------------------------------
+§6.6  Rollout
+------------------------------------------------------------------------------
 
-WHAT IS UCB1-TUNED: A variance-aware variant of UCB1 from Auer et al. (2002).
-Standard UCB1 treats all arms the same in terms of exploration scaling. UCB1-
-Tuned adapts the exploration bonus based on the empirical VARIANCE of rewards.
+rollout(state, snake_id, config) iterates up to rollout_depth steps.
 
-FORMULA:
-  variance(child) = E[reward²] − (E[reward])²
-                  = value_sq/N − (value/N)²
+At each step:
+  - If terminal, stop.
+  - If heuristic rollouts are enabled, choose rollout_move().
+  - Otherwise choose a random legal move.
+  - Apply advance_state(..., stochastic=True).
 
-  tuned_term = variance + sqrt(2 × ln(parent_N) / N)
-  explore = C × sqrt(ln(parent_N) / N × min(0.25, tuned_term))
+The function returns:
+  - reward from mcts_evaluate_state()
+  - a list of our rollout moves
 
-The min(0.25, …) bounds the exploration since rewards are bounded in [0, 1]
-for standard Bernoulli arms. In our case rewards can be large (evaluate_state
-returns values like 500–2000 for normal positions), so the 0.25 bound acts
-as a regulariser preventing excessive exploration. We track value_sq alongside
-value in the Node for this computation.
+That move list is only needed by the RAVE path.
 
-WHY IT HELPS: In positions where outcomes are very consistent (low variance),
-UCB1-Tuned reduces the exploration bonus — we are confident in V/N, so no
-need to keep re-exploring. In positions where outcomes are highly variable
-(high variance), it increases exploration — we need more samples before
-trusting V/N. This makes iteration budget usage more efficient.
+------------------------------------------------------------------------------
+§6.7  Backpropagation
+------------------------------------------------------------------------------
 
-INTUITION: Standard UCB1 says "uncertain nodes need more exploration" but only
-measures uncertainty through the visit count (sqrt(ln N / n) term). UCB1-
-Tuned additionally measures uncertainty through the spread of outcomes. A node
-visited 10 times where every reward was 800 is MORE certain than one visited
-10 times where rewards ranged from 200 to 2000, even though N is the same.
-UCB1-Tuned corrects for this.
+backpropagate(node, reward, moves_in_rollout, use_rave):
+  - increments visits
+  - adds reward to value
+  - adds reward^2 to value_sq
+  - if RAVE is enabled, updates AMAF tables for all rollout moves
 
-RELATIONSHIP TO RAVE: UCB1-Tuned and RAVE are orthogonal improvements. UCB1-
-Tuned modifies the exploration term; RAVE modifies the exploitation term via
-blending. In ALL_IMPROVEMENTS_CONFIG, both are active simultaneously.
+The same scalar reward is propagated unchanged to all ancestors. There is no
+player alternation or sign inversion because the tree is always from the
+perspective of the controlled snake only.
+
+------------------------------------------------------------------------------
+§6.8  Final move choice and safety override
+------------------------------------------------------------------------------
+
+After the search budget expires:
+  - The chosen root child is the one with highest average reward
+    and visit count as a tiebreak.
+
+agent_server.choose_move() then applies two checks:
+
+  1. Illegal-choice recovery
+     If the chosen MCTS move is not legal in the current real state,
+     replace it with the heuristic move.
+
+  2. Heuristic safety override
+     If:
+       - MCTS chose a different move from the heuristic
+       - the chosen child average exists
+       - that average is negative
+       - the heuristic's score exceeds the chosen move's heuristic score by > 60
+     then the heuristic move overrides the MCTS move.
+
+This is a practical safeguard against low-sample or pathological root choices.
 
 ================================================================================
-§6  ABLATION RESULTS (3-SEED RUN)
+§7  AGENT SERVER FLOW
 ================================================================================
 
-§6.1  Raw match outcomes
-────────────────────────────────────────────────────────────────────────────────
+The request flow for a live move is:
 
-Matchup                          S0      S1      S2    W-L-D
-─────────────────────────────────────────────────────────────
-MCTS-All        vs Random        WIN     WIN     WIN   3-0-0
-MCTS-All        vs Heuristic     WIN     LOSS    LOSS  1-2-0
-MCTS-All        vs MCTS-Vanilla  WIN     WIN     LOSS  2-1-0
-MCTS-HeurRollout vs MCTS-Vanilla LOSS    WIN     LOSS  1-2-0
-MCTS-Prior      vs MCTS-HeurRoll LOSS    LOSS    LOSS  0-3-0
-MCTS-Opponent   vs MCTS-Prior    WIN     WIN     WIN   3-0-0
-MCTS-RAVE       vs MCTS-Opponent LOSS    LOSS    WIN   1-2-0
-MCTS-UCB1Tuned  vs MCTS-Opponent WIN     LOSS    LOSS  1-2-0
-Heuristic       vs Random        WIN     WIN     WIN   3-0-0
+  1. main.py reads SNAKE_TACTIC and calls choose_move(game_state, mode).
+  2. choose_move() converts API JSON into internal state.
+  3. It also computes heuristic_choice and heuristic_scores immediately.
+  4. If mode is:
+     - random    -> random legal move
+     - heuristic -> heuristic_choice
+     - mcts*     -> run mcts_move()
+  5. MCTS output is checked against legality and the heuristic safety override.
+  6. The final move is returned as {"move": move_name}.
 
-§6.2  ELO and TrueSkill ratings
-────────────────────────────────────────────────────────────────────────────────
-
-Agent             ELO     TrueSkill (μ − 3σ)    Wins/Games   WinRate
-────────────────────────────────────────────────────────────────────
-Heuristic        1558.4   19.59                  5 / 6        83.3%
-MCTS-Opponent    1556.9   17.66                  7 / 9        77.8%
-MCTS-All         1530.1   14.57                  6 / 9        66.7%
-MCTS-HeurRollout 1529.9   14.23                  4 / 6        66.7%
-MCTS-Vanilla     1506.7   14.33                  3 / 6        50.0%
-MCTS-RAVE        1492.9   11.08                  1 / 3        33.3%
-MCTS-UCB1Tuned   1488.3    9.09                  1 / 3        33.3%
-Random           1420.6    0.17                  0 / 6         0.0%
-MCTS-Prior       1416.1   −0.50                  0 / 6         0.0%
-
-§6.3  Observations and interpretation
-────────────────────────────────────────────────────────────────────────────────
-
-OBSERVATION 1: MCTS-All beats Random cleanly (3-0) but struggles against
-Heuristic (1-2). This is counterintuitive — why would a tree-search agent
-lose to a greedy one?
-
-EXPLANATION: With only 100 ms budget, MCTS gets ~50-150 iterations per turn.
-This is a very shallow tree. The heuristic agent runs in < 5 ms and has a
-well-tuned evaluation function that captures many important game factors
-(flood fill space, territory, food urgency). At low iteration counts, the
-MCTS tree hasn't explored deeply enough to exploit lookahead advantages.
-With 920 ms in live play, MCTS-All would likely outperform the heuristic.
-The tournament budget (100 ms) is deliberately low for speed; results should
-be interpreted with this constraint in mind.
-
-OBSERVATION 2: MCTS-Prior (0-3) is the worst MCTS variant — worse than
-MCTS-Vanilla (3-6, 50%) and even MCTS-HeurRollout (4-6, 66.7%).
-
-EXPLANATION: MCTS-Prior adds prior-guided expansion AND PUCT selection on top
-of heuristic rollouts, but disables opponent modeling (to isolate the effect
-of priors). The PUCT bonus may be over-weighted (prior_bonus_scale = 18) at
-this low iteration count — it keeps pulling selection back to the heuristically
-best child rather than allowing broader exploration. Combined with the lack of
-opponent modeling, this creates an agent that is overconfident in its prior
-estimates. The prior_bonus_scale hyperparameter likely needs tuning.
-
-OBSERVATION 3: MCTS-Opponent (3-0 vs MCTS-Prior) shows the largest positive
-jump among all improvements. Adding opponent modeling on top of priors is the
-single most impactful improvement in this small experiment.
-
-EXPLANATION: Opponent modeling changes the ROOT priors from "what looks good
-to me" to "what is robust against what opponents will actually do." This is
-the right abstraction for a multiplayer game where ignoring opponents is fatal.
-The minimax blend (55% worst case) specifically ensures the agent avoids moves
-that are catastrophically bad even if they look fine in isolation.
-
-OBSERVATION 4: MCTS-RAVE (1-2 vs MCTS-Opponent) and MCTS-UCB1Tuned (1-2 vs
-MCTS-Opponent) show similar and modest performance.
-
-EXPLANATION: Both RAVE and UCB1-Tuned are long-term improvements — they
-accelerate convergence, but their benefits emerge most clearly at intermediate
-iteration counts (500–2000 iterations). At ~100 iterations (100 ms budget),
-the tree is too shallow for RAVE's cross-simulation signal to accumulate
-meaningfully, and UCB1-Tuned's variance estimates are noisy. In live play
-(920 ms, ~500–1000 iterations), both should show clearer benefits.
-
-OBSERVATION 5: Heuristic is the top-ranked agent at this budget.
-
-EXPLANATION: This confirms the well-known result that greedy heuristics can
-outperform MCTS at very low iteration counts. The heuristic's value function
-is hand-tuned and captures the key strategic factors well. MCTS only surpasses
-it once it has enough iterations to find moves the heuristic misses. In the
-context of this tournament (speed-limited), the heuristic is the practical
-baseline to beat.
-
-OBSERVATION 6: Both agents reaching 150 turns (the cap) in many games means
-many results are decided by length rather than survival — which makes the
-length comparison in the CSV noisy data for ELO purposes.
-
-§6.4  Caveats about sample size
-────────────────────────────────────────────────────────────────────────────────
-
-3 seeds per matchup gives N=3 samples. This is statistically insufficient for
-confident conclusions — every win/loss flips can reverse the ranking. At N=3,
-the 95% confidence interval for a 66.7% win rate spans roughly [9%, 99%].
-
-For statistically significant results (95% CI that doesn't include 50%), you
-need approximately:
-  - ~30 seeds if true win rate is 70% (±17%)
-  - ~50 seeds if true win rate is 65% (±13%)
-
-The 3-seed results show general trends consistent with theory but should not
-be used for definitive ranking. Run `NUM_SEEDS=30 python tournament.py` for
-reliable results (estimated 30–45 minutes at MCTS_BUDGET=0.10).
-
-The assignment requires "statistically relevant results" and recommends ELO or
-TrueSkill. Our ELO starts at 1500 and is updated with K=32; TrueSkill uses
-default priors (μ=25, σ=8.33). Both are meaningful only with ≥20 seeds.
+The agent server also assigns cosmetic metadata in info(mode):
+  each variant has a separate colour, head, and tail preset.
 
 ================================================================================
-§7  HOW THE PIECES CONNECT — END-TO-END FLOW
+§8  HEADLESS SIMULATOR AND TOURNAMENT TOOLING
 ================================================================================
 
-  Each game turn, the Flask server receives a POST /move request.
-  agent_server.choose_move() dispatches to the appropriate agent:
+simulate_game.py provides a local engine for evaluation without the Battlesnake
+server. It uses the same internal state model and the same advance_state()
+transition logic, which keeps local experiments aligned with the agent logic.
 
-  ┌─────────────────────────────────────────────────────────────┐
-  │  Raw API JSON (game_state)                                  │
-  │    ↓  make_state_from_game()                                │
-  │  Internal state dict                                        │
-  │    ↓                                                        │
-  │  [If MCTS mode]                                             │
-  │    ↓  opponent_aware_root_scores()  ← heuristic_move_scores │
-  │  Root priors (per-move minimax scores)                       │
-  │    ↓  Build root Node (priors sorted, RAVE tables empty)    │
-  │    ↓  LOOP until time budget exhausted:                     │
-  │       1. tree_policy:                                        │
-  │          - SELECT via best_child() [UCB1 + PUCT + RAVE]     │
-  │          - EXPAND via untried_moves (prior-sorted)           │
-  │       2. rollout() [heuristic or random, tracks moves]      │
-  │          → (reward, moves_made_list)                        │
-  │       3. backpropagate() [updates V, V², RAVE tables]       │
-  │    ↓  Pick child with highest avg reward (V/N)              │
-  │  MCTS best move                                             │
-  │    ↓  Safety fallback check:                                │
-  │       if MCTS avg < 0 AND heuristic strongly disagrees:     │
-  │       → override with heuristic choice                      │
-  │  Final move string ("up"/"down"/"left"/"right")             │
-  │    ↓  Return {"move": ...} to server                        │
-  └─────────────────────────────────────────────────────────────┘
+Important simulator properties:
 
-  The safety fallback guards against MCTS pathologies: if the tree
-  converges on a move with negative average reward AND the heuristic
-  disagrees by more than 60 score points, the heuristic overrides.
-  This is a conservative guard against rare MCTS failures.
+  1. Initial spawns
+     Snakes start from standard corner positions on 11x11 boards.
 
-================================================================================
-§8  KEY DESIGN DECISIONS AND TRADE-OFFS
-================================================================================
+  2. Food spawning
+     Minimum 2 food items are maintained.
+     Additional food spawns with probability 0.25 each turn.
 
-DECISION 1: Use heuristic in rollouts, not pure random
-  PRO:  More signal per iteration; rollouts sample realistic game continuations.
-  CON:  Slower per rollout (local_move_score runs each step); potential for
-        heuristic bias to dominate MCTS signal.
-  WHY WE CHOSE IT: Given the 1-second time constraint and large state space,
-  extracting maximum signal from each iteration is more important than
-  maximising iterations.
+  3. Hazard pits
+     For 11x11 boards, fixed pit centres are:
+       (3,3), (3,7), (7,3), (7,7)
 
-DECISION 2: Rebuild tree from scratch each turn
-  PRO:  No stale state issues; simpler code; no state hashing needed.
-  CON:  Loses all exploration done in previous turns.
-  WHY WE CHOSE IT: BattleSnake positions change too much turn-to-turn for
-  naive tree reuse to be reliable. Proper tree reuse requires matching the
-  game state to the child node that was actually played, pruning the rest,
-  and handling cases where the opponent played unexpectedly. The marginal
-  gain from reuse is small at 920 ms.
+     Hazard stacks follow:
+       - turn < 26: no hazards
+       - turns 26-175: ramp to a max of 4 stacks
+       - turns 176+: drain every 25 turns
 
-DECISION 3: Opponent moves modelled as greedy (not random, not MCTS)
-  PRO:  Better opponent approximation than random; tractable for N opponents.
-  CON:  Opponents are actually also running MCTS; greedy underestimates their
-        search depth.
-  WHY WE CHOSE IT: Running MCTS for each opponent at each node would be
-  computationally infeasible within 1 second. Greedy heuristic is the best
-  tractable approximation.
+  4. API bridge
+     _internal_to_api() reconstructs a Battlesnake-like game_state dict so
+     local agent callables can be evaluated through the same interface as the
+     live server path.
 
-DECISION 4: evaluate_state includes territory_score (Voronoi)
-  PRO:  Territory dominance is a key strategic signal in snake games.
-  CON:  territory_score is O(board_area × n_snakes) — the most expensive
-        operation in the codebase, called at each rollout termination.
-  WHY WE CHOSE IT: In testing, positions with high territory score reliably
-  won; the computational cost is justified by the strategic value.
+tournament.py layers on top of simulate_game.py.
+It is designed for reproducible headless comparisons:
+  - pairwise round-robin scheduling
+  - explicit seed control
+  - optional multiprocessing
+  - optional TrueSkill if installed
+  - CSV export of game-level records and ratings
 
-DECISION 5: PUCT prior weight = 18.0 (not tuned per-config)
-  PRO:  Works well in the default (all-improvements) configuration.
-  CON:  Likely too high for MCTS-Prior which lacks opponent modeling.
-  WHY WE CHOSE IT: Hyperparameter tuning requires many runs; we use a value
-  that works for the main agent. Per-config tuning is flagged as future work.
+This tooling exists in the codebase, but this document does not interpret or
+report any of its outputs.
 
 ================================================================================
-§9  KNOWN WEAKNESSES AND FUTURE WORK
+§9  KEY DESIGN CHOICES REFLECTED IN THE CURRENT CODE
 ================================================================================
 
-WEAKNESS 1: Time budget sensitivity
-  All MCTS improvements show larger gains at higher iteration counts. At 100 ms
-  (tournament budget), heuristic often outperforms MCTS. Proper evaluation
-  requires the full 920 ms live-play budget.
+Choice 1: Shared transition logic
+  The same advance_state() function is used by heuristic lookahead, MCTS, and
+  the headless simulator. This reduces rule drift across modules.
 
-WEAKNESS 2: MCTS-Prior misconfiguration
-  The prior_bonus_scale (18.0) is too strong when opponent modeling is absent.
-  The prior pulls selection too strongly toward the heuristic's preference,
-  reducing exploratory coverage. A lower scale (e.g., 8.0) would likely fix
-  this. Future work: tune per-config.
+Choice 2: Two evaluators instead of one
+  evaluate_state() is richer and large-scale for heuristic move ranking.
+  mcts_evaluate_state() is bounded and rollout-friendly for tree search.
+  This separation is deliberate and appropriate.
 
-WEAKNESS 3: Terminal condition in MCTS
-  We stop rollouts at depth 8. Terminal detection only fires when the snake is
-  dead or is the sole survivor. In practice, many rollout endpoints are
-  non-terminal (snake still alive but game not over). The evaluate_state()
-  then provides a heuristic approximation. If the rollout depth is too short,
-  this approximation can miss long-horizon consequences.
+Choice 3: Rich root priors, cheap internal priors
+  The code spends computation at the root where it matters most, then keeps
+  deeper-node priors cheap to preserve rollout throughput.
 
-WEAKNESS 4: No tree reuse
-  Rebuilding the tree each turn wastes prior computation. Reusing the subtree
-  rooted at the move actually played could give ~4x more effective iterations.
-  Implementation requires robust state hashing and careful subtree extraction.
+Choice 4: Greedy opponent model, not opponent tree search
+  Opponents are approximated by heuristic move selection rather than full MCTS.
+  This is a computational compromise to keep the search tractable.
 
-WEAKNESS 5: Greedy opponent modelling
-  Opponents running MCTS are underestimated. A more accurate opponent model
-  would use the opponent's heuristic in the root-scoring minimax computation
-  AND in the rollout expansion. A computationally cheaper alternative is to
-  add noise to the greedy choice (epsilon-greedy), simulating that opponents
-  sometimes deviate from the heuristic.
+Choice 5: Soft stochasticity in search
+  Search expansions and rollouts do not assume perfectly deterministic opponent
+  play. Instead they randomise among near-best moves, which broadens coverage.
 
-WEAKNESS 6: Hazard pits not perfectly simulated
-  Our headless simulator uses fixed pit positions at quadrant centres. The
-  actual hz_hazard_pits map may place pits differently. Results from headless
-  simulation may not perfectly reflect live-play behaviour in late-game (turn
-  ≥ 26) scenarios.
-
-FUTURE IMPROVEMENTS (literature-based):
-
-  A. Tree reuse (subtree grafting)
-     Reuse the subtree from the previous turn to avoid losing all explored
-     information. Requires state hashing via Zobrist hashing or similar.
-
-  B. Progressive widening / progressive bias
-     Limit the branching factor at deep nodes. Instead of expanding all moves
-     at once, add children progressively as the parent's visit count grows.
-     Helps in environments with large action spaces.
-
-  C. Parallelisation (root parallelisation or tree parallelisation)
-     Run multiple MCTS trees in parallel threads, merge statistics at root.
-     Would multiply effective iteration count on multi-core hardware.
-
-  D. Learned evaluation function
-     Replace hand-tuned weights in evaluate_state() with a neural network
-     trained on self-play game data. This is the AlphaGo/MuZero approach
-     but is explicitly forbidden by the assignment for this component.
-
-  E. RAVE-k tuning
-     The rave_k=500 constant controls how fast RAVE fades out relative to
-     UCT. Tuning this via cross-validation across seeds could yield gains.
-
-  F. Opponent-aware rollout expansion
-     Currently, during rollouts only our snake uses a heuristic; opponents
-     still use the default greedy. Using opponents' heuristics per-opponent
-     identity (if known) would give more realistic rollout distributions.
+Choice 6: Heuristic guardrail above MCTS
+  The final move selection is not purely "trust the tree". The code explicitly
+  preserves a heuristic veto when the MCTS estimate is negative and clearly
+  inferior by heuristic standards.
 
 ================================================================================
-END OF TECHNICAL ANALYSIS
+§10  KNOWN LIMITATIONS AND MISMATCHES
+================================================================================
+
+Limitation 1: teamname.py docstring is stale
+  teamname.py still claims the contest agent uses RAVE/AMAF as part of "all
+  improvements". In the actual config, ALL_IMPROVEMENTS_CONFIG sets:
+    use_rave=False
+    use_ucb1_tuned=True
+
+Limitation 2: Single-agent tree perspective
+  The tree only branches on our actions. Opponent decisions are approximated
+  through greedy or shortlist-stochastic policies rather than represented as
+  explicit adversarial tree nodes.
+
+Limitation 3: No tree reuse between turns
+  MCTS rebuilds from scratch every move. This is simpler and robust, but it
+  discards information gathered on the previous turn.
+
+Limitation 4: Short rollout horizon
+  rollout_depth is 8. Long tactical traps or delayed starvation sequences can
+  still be missed, especially when they lie beyond that horizon.
+
+Limitation 5: Heuristic bias inside search
+  Priors, greedy opponent modelling, and heuristic rollouts all inject domain
+  bias into MCTS. This is useful under a time budget, but it means the search
+  is not an unbiased Monte Carlo estimator.
+
+Limitation 6: Simulator is aligned but not authoritative
+  simulate_game.py approximates the target environment for local studies, but
+  the live Battlesnake engine remains the ground truth for official behaviour.
+
+================================================================================
+§11  RESULTS POLICY FOR THIS REPORT
+================================================================================
+
+This updated technical analysis intentionally excludes:
+  - raw win/loss tables
+  - ELO or TrueSkill summaries
+  - ablation rankings
+  - interpretation of tournament outcomes
+
+The reason is simple: the requested update is to make the technical analysis
+accurate for the current code without adding results. This document therefore
+focuses only on implementation, architecture, and behavioural logic.
+
+================================================================================
+END OF UPDATED TECHNICAL ANALYSIS
 ================================================================================

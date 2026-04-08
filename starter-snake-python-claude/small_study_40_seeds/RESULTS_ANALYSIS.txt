@@ -1,0 +1,336 @@
+================================================================================
+  SMALL STUDY (40 SEEDS) — RESULTS ANALYSIS
+  Folder: small_study_40_seeds
+================================================================================
+
+Date         : April 2026
+Data files   : game_records.csv, ratings.csv
+Study scope  : 4 agents, 40 seeds per matchup, 240 total games
+
+Agents included:
+  - Heuristic
+  - MCTS-All
+  - MCTS-Vanilla
+  - Random
+
+--------------------------------------------------------------------------------
+1. OVERVIEW
+--------------------------------------------------------------------------------
+
+This study contains 240 head-to-head games:
+  - 6 pairwise matchups
+  - 40 seeds per matchup
+  - 2 agents per game
+
+The main result is that MCTS-All is the strongest overall agent in this study.
+It has the highest aggregate win rate across all opponents and ranks first by
+conservative TrueSkill, while Heuristic ranks first by ELO. Heuristic is the
+second-strongest agent and remains competitive with MCTS-All in direct play.
+MCTS-Vanilla is clearly weaker than both MCTS-All and Heuristic, while Random
+is not competitive.
+
+No draws occurred in this dataset.
+
+--------------------------------------------------------------------------------
+2. RATING SUMMARY
+--------------------------------------------------------------------------------
+
+From ratings.csv:
+
+  Agent          ELO      TrueSkill conservative (mu - 3 sigma)
+  -------------------------------------------------------------
+  Heuristic      1734.17  22.3369
+  MCTS-All       1677.73  22.6213
+  MCTS-Vanilla   1531.17  19.7343
+  Random         1056.93   4.7411
+
+Interpretation:
+  - ELO ranks Heuristic first and MCTS-All second.
+  - TrueSkill conservative score ranks MCTS-All first and Heuristic second.
+  - Both systems agree on the same top tier:
+      MCTS-All and Heuristic are the two strongest agents.
+  - Both systems also agree on the lower tier:
+      MCTS-Vanilla is clearly behind the top two, and Random is far behind all
+      search-based or heuristic agents.
+
+The slight disagreement between ELO and TrueSkill at the top is not a major
+contradiction. The direct head-to-head record between Heuristic and MCTS-All is
+close enough that small modelling differences in the rating systems can change
+the ordering.
+
+--------------------------------------------------------------------------------
+3. AGGREGATE PERFORMANCE ACROSS ALL GAMES
+--------------------------------------------------------------------------------
+
+Per-agent summary computed from game_records.csv:
+
+  Agent          Wins   Games   Win rate   Avg survival   Avg final length
+  ------------------------------------------------------------------------
+  MCTS-All       89.0   120     74.2%      125.04         17.80
+  Heuristic      84.0   120     70.0%      123.58         16.60
+  MCTS-Vanilla   66.0   120     55.0%      125.23         15.51
+  Random          1.0   120      0.8%       50.86          5.48
+
+Key observations:
+  1. MCTS-All has the best overall win rate in the full 240-game pool.
+  2. Heuristic is close behind and is still a strong baseline.
+  3. MCTS-Vanilla wins more often than it loses overall only because it
+     dominates Random; against the stronger agents it falls behind.
+  4. Random almost never wins and survives for far fewer turns on average.
+
+Average placement shows the same pattern:
+
+  Agent          Avg placement
+  ----------------------------
+  MCTS-All       1.258
+  Heuristic      1.300
+  MCTS-Vanilla   1.450
+  Random         1.992
+
+Since every game has only two players, lower is better here. Again, MCTS-All
+is best overall, Heuristic is very close, MCTS-Vanilla is clearly worse, and
+Random is almost always second.
+
+--------------------------------------------------------------------------------
+4. HEAD-TO-HEAD MATCHUPS
+--------------------------------------------------------------------------------
+
+4.1  Heuristic vs MCTS-All
+--------------------------
+
+Record:
+  - Heuristic: 19 wins
+  - MCTS-All: 21 wins
+  - Win rate for Heuristic: 47.5%
+  - Win rate for MCTS-All: 52.5%
+
+Other matchup statistics:
+  - Average game length: 161.18 turns
+  - Games reaching the 200-turn cap: 18 / 40
+  - Average final length:
+      Heuristic  = 20.75
+      MCTS-All   = 21.52
+
+Interpretation:
+  This is the closest matchup in the study. MCTS-All has a narrow edge, but it
+  is small. The long average game length and large number of capped games show
+  that these agents are closely matched and often survive deep into the game.
+  In practical terms, the study supports the claim that MCTS-All is at least as
+  strong as Heuristic, but not overwhelmingly stronger.
+
+Approximate 95% confidence interval for Heuristic win rate:
+  32.0% to 63.0%
+
+That interval includes 50%, so this matchup alone does not justify a strong
+claim that one agent decisively dominates the other.
+
+4.2  Heuristic vs MCTS-Vanilla
+------------------------------
+
+Record:
+  - Heuristic: 25 wins
+  - MCTS-Vanilla: 15 wins
+  - Win rate for Heuristic: 62.5%
+
+Other matchup statistics:
+  - Average game length: 165.43 turns
+  - Games reaching the 200-turn cap: 21 / 40
+  - Average final length:
+      Heuristic     = 21.93
+      MCTS-Vanilla  = 20.00
+
+Interpretation:
+  Heuristic has a meaningful edge over MCTS-Vanilla. The result suggests that
+  the heuristic policy is already strong enough to outperform unguided or less
+  refined search. This is consistent with the code design: the heuristic agent
+  uses a fairly rich evaluation pipeline, while MCTS-Vanilla lacks priors,
+  opponent-aware root scoring, heuristic rollouts, and UCB1-Tuned.
+
+Approximate 95% confidence interval for Heuristic win rate:
+  47.5% to 77.5%
+
+This still leaves uncertainty, but the central estimate clearly favours
+Heuristic.
+
+4.3  MCTS-Vanilla vs MCTS-All
+-----------------------------
+
+Record:
+  - MCTS-Vanilla: 12 wins
+  - MCTS-All: 28 wins
+  - Win rate for MCTS-Vanilla: 30.0%
+  - Win rate for MCTS-All: 70.0%
+
+Other matchup statistics:
+  - Average game length: 157.90 turns
+  - Games reaching the 200-turn cap: 21 / 40
+  - Average final length:
+      MCTS-Vanilla  = 17.90
+      MCTS-All      = 21.90
+
+Interpretation:
+  This is the clearest evidence in the dataset that the added MCTS guidance is
+  valuable. MCTS-All substantially outperforms MCTS-Vanilla, which indicates
+  that the extra machinery in the improved configuration is not just cosmetic.
+  The strongest likely contributors are the root priors, heuristic rollouts,
+  and improved selection policy.
+
+Approximate 95% confidence interval for MCTS-Vanilla win rate:
+  15.8% to 44.2%
+
+Since the interval lies well below 50%, this matchup gives the strongest
+support for the superiority of MCTS-All in the study.
+
+4.4  Random against the other agents
+------------------------------------
+
+Records:
+  - Random vs Heuristic:      0 - 40
+  - Random vs MCTS-All:       0 - 40
+  - Random vs MCTS-Vanilla:   1 - 39
+
+Average game lengths:
+  - Random vs Heuristic:     44.10 turns
+  - Random vs MCTS-All:      56.00 turns
+  - Random vs MCTS-Vanilla:  52.40 turns
+
+Interpretation:
+  Random is not a meaningful competitor. Its main purpose here is as a floor
+  baseline, confirming that all structured decision policies are dramatically
+  better than uninformed play.
+
+--------------------------------------------------------------------------------
+5. WHAT THE RESULTS SAY ABOUT THE AGENTS
+--------------------------------------------------------------------------------
+
+5.1  MCTS-All
+-------------
+
+MCTS-All is the best overall performer in the study by aggregate win rate,
+average placement, and conservative TrueSkill. Its direct edge over Heuristic
+is narrow, but its edge over MCTS-Vanilla is large. This supports the view
+that the improved search configuration adds real value beyond plain MCTS.
+
+The most defensible conclusion is:
+  MCTS-All is the strongest agent in this dataset overall, even though its
+  direct advantage over Heuristic is small rather than decisive.
+
+5.2  Heuristic
+--------------
+
+Heuristic remains a very strong baseline. It comfortably defeats MCTS-Vanilla
+and is nearly even with MCTS-All. This is important because it shows that a
+well-designed evaluation function plus one-step lookahead is highly effective
+in this environment.
+
+The heuristic agent is not just a baseline to beat; it is a genuinely strong
+competitor in its own right.
+
+5.3  MCTS-Vanilla
+-----------------
+
+MCTS-Vanilla is clearly better than Random, but it is not competitive with the
+best two agents. Its weaker results against both Heuristic and MCTS-All imply
+that search alone is not enough here; guidance matters. In this codebase, the
+improved MCTS configuration appears to depend heavily on heuristic structure.
+
+5.4  Random
+-----------
+
+Random validates the floor of the experiment. It almost never wins, survives
+for fewer turns, and finishes with much smaller final length. This confirms
+that the study is sensitive enough to distinguish intelligent agents from a
+non-strategic baseline.
+
+--------------------------------------------------------------------------------
+6. EFFECT OF LONG GAMES AND TURN CAPS
+--------------------------------------------------------------------------------
+
+Out of 240 games, 60 reached the 200-turn cap:
+
+  60 / 240 = 25.0%
+
+This matters for interpretation:
+  - Many games between the stronger agents are effectively decided by end-state
+    length rather than early elimination.
+  - That makes final length an important supporting metric, not just survival.
+  - It also explains why the strongest matchups have very long average game
+    lengths, especially:
+      Heuristic vs MCTS-All
+      Heuristic vs MCTS-Vanilla
+      MCTS-Vanilla vs MCTS-All
+
+Across all games:
+  - Average game length: 106.18 turns
+  - Median game length: 102.5 turns
+  - Average non-capped game length: 74.91 turns
+
+The stronger matchups are much longer than the global average because games
+against Random end quickly and pull the overall mean downward.
+
+--------------------------------------------------------------------------------
+7. MOST DEFENSIBLE CONCLUSIONS
+--------------------------------------------------------------------------------
+
+The strongest claims supported by this 40-seed study are:
+
+  1. MCTS-All and Heuristic form the top tier.
+
+  2. MCTS-All is the strongest overall agent in the full dataset.
+     This claim is supported by aggregate win rate, average placement, and
+     conservative TrueSkill.
+
+  3. Heuristic is competitive with MCTS-All.
+     The head-to-head result is close enough that it should be described as a
+     narrow MCTS-All edge, not a decisive separation.
+
+  4. MCTS-All clearly outperforms MCTS-Vanilla.
+     This is the cleanest direct evidence that the improved MCTS design helps.
+
+  5. Random is an appropriate floor baseline and is dramatically weaker than
+     all other agents.
+
+--------------------------------------------------------------------------------
+8. LIMITATIONS OF THIS RESULTS SET
+--------------------------------------------------------------------------------
+
+This is a much stronger dataset than a 3-seed pilot, but it still has limits:
+
+  - The top matchup is close.
+    Heuristic vs MCTS-All does not provide overwhelming separation.
+
+  - Some confidence intervals remain wide.
+    Forty seeds is enough for useful conclusions, but not enough to eliminate
+    all uncertainty in close matchups.
+
+  - Many games reach the turn cap.
+    This makes end-game length management important and can compress the gap
+    between strong agents.
+
+  - These are local headless results.
+    They are highly useful for controlled comparison, but they should still be
+    described as results from this simulator setup.
+
+--------------------------------------------------------------------------------
+9. FINAL SUMMARY
+--------------------------------------------------------------------------------
+
+The 40-seed small study shows a clear overall ranking:
+
+  1. MCTS-All
+  2. Heuristic
+  3. MCTS-Vanilla
+  4. Random
+
+The key qualitative takeaway is not simply that "MCTS beats heuristic."
+A more accurate conclusion is:
+
+  The fully improved MCTS agent is the best overall performer, but the
+  heuristic baseline remains very strong and runs it close in direct play.
+  The largest and clearest performance jump is between MCTS-Vanilla and
+  MCTS-All, which indicates that the added MCTS guidance mechanisms are
+  materially useful in this codebase.
+
+================================================================================
+END OF RESULTS ANALYSIS
+================================================================================
