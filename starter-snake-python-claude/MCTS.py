@@ -40,7 +40,7 @@ class MCTSConfig:
 
     # Improvement 1 & 2: Prior-guided expansion + PUCT selection
     use_priors: bool = True
-    prior_bonus_scale: float = 18.0   # multiplier for prior bonus
+    prior_bonus_scale: float = 4.0    # multiplier for prior bonus (was 18.0 — too aggressive at low iteration counts)
     puct_decay: bool = True            # bonus decays with visits
 
     # Improvement 3: Opponent-aware root scoring (minimax blend)
@@ -123,8 +123,8 @@ ALL_IMPROVEMENTS_CONFIG = MCTSConfig(
     use_priors=True,
     use_opponent_model=True,
     use_heuristic_rollout=True,
-    use_rave=True,
-    use_ucb1_tuned=True,
+    use_rave=False,            # RAVE + UCB1-Tuned conflict (both modify selection);
+    use_ucb1_tuned=True,       # UCB1-Tuned performed better individually (73.3% vs 60%)
 )
 
 
@@ -156,11 +156,15 @@ class Node:
         self.children: List["Node"] = []
 
         if priors is not None:
+            # Root node: caller provides full heuristic / opponent-aware priors
             self.priors = priors
-        elif config is not None and config.use_priors:
+        elif config is not None and config.use_priors and parent is None:
+            # Root without explicit priors — compute them (rare path)
             self.priors = heuristic_move_scores(state, snake_id)
         else:
-            # Uniform priors — still need move ordering
+            # Child nodes or non-prior configs: use cheap legal-move lookup.
+            # heuristic_move_scores is too expensive to call on every node in
+            # the tree — it dominates the MCTS budget and starves the search.
             legal = get_legal_moves(state, snake_id)
             self.priors = {m: 0.0 for m in legal}
 

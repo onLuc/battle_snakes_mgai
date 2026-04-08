@@ -50,7 +50,7 @@ except ImportError:
 # ---------------------------------------------------------------------------
 
 NUM_SEEDS = int(os.environ.get("NUM_SEEDS", "30"))
-MCTS_BUDGET = float(os.environ.get("MCTS_BUDGET", "0.10"))
+MCTS_BUDGET = float(os.environ.get("MCTS_BUDGET", "0.25"))
 MAX_TURNS = int(os.environ.get("MAX_TURNS", "200"))
 RESULTS_DIR = os.environ.get("RESULTS_DIR", "tournament_results")
 

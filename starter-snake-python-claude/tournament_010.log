@@ -1,0 +1,33 @@
+[WARNING] trueskill not installed — TrueSkill ratings will be skipped.
+Tournament settings: seeds=10, budget=0.1s, max_turns=200
+Results directory: tournament_results_fix_010
+
+=== MCTS-All vs Random ===
+  [MCTS-All vs Random] seed=0 ... WIN (turns=2)
+  [MCTS-All vs Random] seed=1 ... WIN (turns=33)
+  [MCTS-All vs Random] seed=2 ... WIN (turns=2)
+  [MCTS-All vs Random] seed=3 ... WIN (turns=20)
+  [MCTS-All vs Random] seed=4 ... WIN (turns=2)
+  [MCTS-All vs Random] seed=5 ... WIN (turns=47)
+  [MCTS-All vs Random] seed=6 ... WIN (turns=75)
+  [MCTS-All vs Random] seed=7 ... WIN (turns=74)
+  [MCTS-All vs Random] seed=8 ... WIN (turns=2)
+  [MCTS-All vs Random] seed=9 ... WIN (turns=16)
+
+=== MCTS-All vs Heuristic ===
+  [MCTS-All vs Heuristic] seed=0 ... WIN (turns=200)
+  [MCTS-All vs Heuristic] seed=1 ... WIN (turns=200)
+  [MCTS-All vs Heuristic] seed=2 ... LOSS (turns=104)
+  [MCTS-All vs Heuristic] seed=3 ... LOSS (turns=200)
+  [MCTS-All vs Heuristic] seed=4 ... LOSS (turns=158)
+  [MCTS-All vs Heuristic] seed=5 ... LOSS (turns=153)
+  [MCTS-All vs Heuristic] seed=6 ... WIN (turns=189)
+  [MCTS-All vs Heuristic] seed=7 ... LOSS (turns=200)
+  [MCTS-All vs Heuristic] seed=8 ... WIN (turns=163)
+  [MCTS-All vs Heuristic] seed=9 ... LOSS (turns=18)
+
+=== MCTS-All vs MCTS-Vanilla ===
+  [MCTS-All vs MCTS-Vanilla] seed=0 ... WIN (turns=154)
+  [MCTS-All vs MCTS-Vanilla] seed=1 ... WIN (turns=32)
+  [MCTS-All vs MCTS-Vanilla] seed=2 ... WIN (turns=200)
+  [MCTS-All vs MCTS-Vanilla] seed=3 ... 

@@ -1,0 +1,10 @@
+agent,elo,ts_mu,ts_sigma,ts_conservative
+Heuristic,1665.31,0.0,0.0,0.0
+MCTS-All,1472.27,0.0,0.0,0.0
+MCTS-HeurRollout,1497.48,0.0,0.0,0.0
+MCTS-Opponent,1510.39,0.0,0.0,0.0
+MCTS-Prior,1427.08,0.0,0.0,0.0
+MCTS-RAVE,1487.18,0.0,0.0,0.0
+MCTS-UCB1Tuned,1562.26,0.0,0.0,0.0
+MCTS-Vanilla,1543.49,0.0,0.0,0.0
+Random,1334.53,0.0,0.0,0.0

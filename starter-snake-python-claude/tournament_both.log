@@ -1,0 +1,280 @@
+[WARNING] trueskill not installed — TrueSkill ratings will be skipped.
+Tournament settings: seeds=10, budget=0.1s, max_turns=200
+Results directory: tournament_results_fix_010
+
+=== MCTS-All vs Random ===
+  [MCTS-All vs Random] seed=0 ... WIN (turns=64)
+  [MCTS-All vs Random] seed=1 ... WIN (turns=2)
+  [MCTS-All vs Random] seed=2 ... WIN (turns=15)
+  [MCTS-All vs Random] seed=3 ... WIN (turns=2)
+  [MCTS-All vs Random] seed=4 ... WIN (turns=2)
+  [MCTS-All vs Random] seed=5 ... WIN (turns=78)
+  [MCTS-All vs Random] seed=6 ... WIN (turns=2)
+  [MCTS-All vs Random] seed=7 ... WIN (turns=35)
+  [MCTS-All vs Random] seed=8 ... WIN (turns=111)
+  [MCTS-All vs Random] seed=9 ... WIN (turns=44)
+
+=== MCTS-All vs Heuristic ===
+  [MCTS-All vs Heuristic] seed=0 ... WIN (turns=164)
+  [MCTS-All vs Heuristic] seed=1 ... LOSS (turns=200)
+  [MCTS-All vs Heuristic] seed=2 ... LOSS (turns=200)
+  [MCTS-All vs Heuristic] seed=3 ... WIN (turns=191)
+  [MCTS-All vs Heuristic] seed=4 ... LOSS (turns=167)
+  [MCTS-All vs Heuristic] seed=5 ... LOSS (turns=176)
+  [MCTS-All vs Heuristic] seed=6 ... LOSS (turns=166)
+  [MCTS-All vs Heuristic] seed=7 ... LOSS (turns=200)
+  [MCTS-All vs Heuristic] seed=8 ... LOSS (turns=82)
+  [MCTS-All vs Heuristic] seed=9 ... LOSS (turns=35)
+
+=== MCTS-All vs MCTS-Vanilla ===
+  [MCTS-All vs MCTS-Vanilla] seed=0 ... WIN (turns=200)
+  [MCTS-All vs MCTS-Vanilla] seed=1 ... WIN (turns=24)
+  [MCTS-All vs MCTS-Vanilla] seed=2 ... LOSS (turns=164)
+  [MCTS-All vs MCTS-Vanilla] seed=3 ... LOSS (turns=200)
+  [MCTS-All vs MCTS-Vanilla] seed=4 ... WIN (turns=200)
+  [MCTS-All vs MCTS-Vanilla] seed=5 ... LOSS (turns=200)
+  [MCTS-All vs MCTS-Vanilla] seed=6 ... LOSS (turns=178)
+  [MCTS-All vs MCTS-Vanilla] seed=7 ... LOSS (turns=179)
+  [MCTS-All vs MCTS-Vanilla] seed=8 ... LOSS (turns=147)
+  [MCTS-All vs MCTS-Vanilla] seed=9 ... WIN (turns=87)
+
+=== MCTS-HeurRollout vs MCTS-Vanilla ===
+  [MCTS-HeurRollout vs MCTS-Vanilla] seed=0 ... WIN (turns=35)
+  [MCTS-HeurRollout vs MCTS-Vanilla] seed=1 ... LOSS (turns=21)
+  [MCTS-HeurRollout vs MCTS-Vanilla] seed=2 ... LOSS (turns=182)
+  [MCTS-HeurRollout vs MCTS-Vanilla] seed=3 ... LOSS (turns=161)
+  [MCTS-HeurRollout vs MCTS-Vanilla] seed=4 ... WIN (turns=132)
+  [MCTS-HeurRollout vs MCTS-Vanilla] seed=5 ... LOSS (turns=200)
+  [MCTS-HeurRollout vs MCTS-Vanilla] seed=6 ... WIN (turns=11)
+  [MCTS-HeurRollout vs MCTS-Vanilla] seed=7 ... WIN (turns=108)
+  [MCTS-HeurRollout vs MCTS-Vanilla] seed=8 ... LOSS (turns=45)
+  [MCTS-HeurRollout vs MCTS-Vanilla] seed=9 ... LOSS (turns=20)
+
+=== MCTS-Prior vs MCTS-HeurRollout ===
+  [MCTS-Prior vs MCTS-HeurRollout] seed=0 ... LOSS (turns=2)
+  [MCTS-Prior vs MCTS-HeurRollout] seed=1 ... WIN (turns=200)
+  [MCTS-Prior vs MCTS-HeurRollout] seed=2 ... WIN (turns=200)
+  [MCTS-Prior vs MCTS-HeurRollout] seed=3 ... WIN (turns=200)
+  [MCTS-Prior vs MCTS-HeurRollout] seed=4 ... LOSS (turns=38)
+  [MCTS-Prior vs MCTS-HeurRollout] seed=5 ... LOSS (turns=2)
+  [MCTS-Prior vs MCTS-HeurRollout] seed=6 ... WIN (turns=200)
+  [MCTS-Prior vs MCTS-HeurRollout] seed=7 ... WIN (turns=46)
+  [MCTS-Prior vs MCTS-HeurRollout] seed=8 ... LOSS (turns=192)
+  [MCTS-Prior vs MCTS-HeurRollout] seed=9 ... LOSS (turns=2)
+
+=== MCTS-Opponent vs MCTS-Prior ===
+  [MCTS-Opponent vs MCTS-Prior] seed=0 ... LOSS (turns=200)
+  [MCTS-Opponent vs MCTS-Prior] seed=1 ... WIN (turns=2)
+  [MCTS-Opponent vs MCTS-Prior] seed=2 ... WIN (turns=2)
+  [MCTS-Opponent vs MCTS-Prior] seed=3 ... WIN (turns=37)
+  [MCTS-Opponent vs MCTS-Prior] seed=4 ... WIN (turns=127)
+  [MCTS-Opponent vs MCTS-Prior] seed=5 ... WIN (turns=90)
+  [MCTS-Opponent vs MCTS-Prior] seed=6 ... WIN (turns=2)
+  [MCTS-Opponent vs MCTS-Prior] seed=7 ... WIN (turns=76)
+  [MCTS-Opponent vs MCTS-Prior] seed=8 ... WIN (turns=2)
+  [MCTS-Opponent vs MCTS-Prior] seed=9 ... LOSS (turns=100)
+
+=== MCTS-RAVE vs MCTS-Opponent ===
+  [MCTS-RAVE vs MCTS-Opponent] seed=0 ... LOSS (turns=46)
+  [MCTS-RAVE vs MCTS-Opponent] seed=1 ... WIN (turns=181)
+  [MCTS-RAVE vs MCTS-Opponent] seed=2 ... LOSS (turns=137)
+  [MCTS-RAVE vs MCTS-Opponent] seed=3 ... WIN (turns=22)
+  [MCTS-RAVE vs MCTS-Opponent] seed=4 ... WIN (turns=105)
+  [MCTS-RAVE vs MCTS-Opponent] seed=5 ... LOSS (turns=179)
+  [MCTS-RAVE vs MCTS-Opponent] seed=6 ... WIN (turns=36)
+  [MCTS-RAVE vs MCTS-Opponent] seed=7 ... LOSS (turns=89)
+  [MCTS-RAVE vs MCTS-Opponent] seed=8 ... LOSS (turns=71)
+  [MCTS-RAVE vs MCTS-Opponent] seed=9 ... LOSS (turns=172)
+
+=== MCTS-UCB1Tuned vs MCTS-Opponent ===
+  [MCTS-UCB1Tuned vs MCTS-Opponent] seed=0 ... WIN (turns=27)
+  [MCTS-UCB1Tuned vs MCTS-Opponent] seed=1 ... WIN (turns=79)
+  [MCTS-UCB1Tuned vs MCTS-Opponent] seed=2 ... WIN (turns=200)
+  [MCTS-UCB1Tuned vs MCTS-Opponent] seed=3 ... WIN (turns=106)
+  [MCTS-UCB1Tuned vs MCTS-Opponent] seed=4 ... LOSS (turns=200)
+  [MCTS-UCB1Tuned vs MCTS-Opponent] seed=5 ... LOSS (turns=178)
+  [MCTS-UCB1Tuned vs MCTS-Opponent] seed=6 ... WIN (turns=158)
+  [MCTS-UCB1Tuned vs MCTS-Opponent] seed=7 ... LOSS (turns=113)
+  [MCTS-UCB1Tuned vs MCTS-Opponent] seed=8 ... WIN (turns=16)
+  [MCTS-UCB1Tuned vs MCTS-Opponent] seed=9 ... WIN (turns=171)
+
+=== Heuristic vs Random ===
+  [Heuristic vs Random] seed=0 ... WIN (turns=80)
+  [Heuristic vs Random] seed=1 ... WIN (turns=32)
+  [Heuristic vs Random] seed=2 ... WIN (turns=43)
+  [Heuristic vs Random] seed=3 ... WIN (turns=2)
+  [Heuristic vs Random] seed=4 ... WIN (turns=2)
+  [Heuristic vs Random] seed=5 ... WIN (turns=2)
+  [Heuristic vs Random] seed=6 ... WIN (turns=127)
+  [Heuristic vs Random] seed=7 ... WIN (turns=102)
+  [Heuristic vs Random] seed=8 ... WIN (turns=69)
+  [Heuristic vs Random] seed=9 ... WIN (turns=29)
+
+======================================================================
+Agent                          ELO  TS-Conservative
+----------------------------------------------------------------------
+Heuristic                   1665.3            0.000
+MCTS-UCB1Tuned              1562.3            0.000
+MCTS-Vanilla                1543.5            0.000
+MCTS-Opponent               1510.4            0.000
+MCTS-HeurRollout            1497.5            0.000
+MCTS-RAVE                   1487.2            0.000
+MCTS-All                    1472.3            0.000
+MCTS-Prior                  1427.1            0.000
+Random                      1334.5            0.000
+======================================================================
+
+Win rates:
+Agent                       Wins  Games   WinRate
+--------------------------------------------------
+Heuristic                     18     20     90.0%
+MCTS-UCB1Tuned                 7     10     70.0%
+MCTS-Vanilla                  12     20     60.0%
+MCTS-Opponent                 17     30     56.7%
+MCTS-All                      16     30     53.3%
+MCTS-HeurRollout               9     20     45.0%
+MCTS-RAVE                      4     10     40.0%
+MCTS-Prior                     7     20     35.0%
+Random                         0     20      0.0%
+[saved] tournament_results_fix_010/game_records.csv
+[saved] tournament_results_fix_010/ratings.csv
+[WARNING] trueskill not installed — TrueSkill ratings will be skipped.
+Tournament settings: seeds=10, budget=0.25s, max_turns=200
+Results directory: tournament_results_fix_025
+
+=== MCTS-All vs Random ===
+  [MCTS-All vs Random] seed=0 ... WIN (turns=82)
+  [MCTS-All vs Random] seed=1 ... WIN (turns=2)
+  [MCTS-All vs Random] seed=2 ... WIN (turns=19)
+  [MCTS-All vs Random] seed=3 ... WIN (turns=25)
+  [MCTS-All vs Random] seed=4 ... WIN (turns=2)
+  [MCTS-All vs Random] seed=5 ... WIN (turns=85)
+  [MCTS-All vs Random] seed=6 ... WIN (turns=40)
+  [MCTS-All vs Random] seed=7 ... WIN (turns=36)
+  [MCTS-All vs Random] seed=8 ... WIN (turns=2)
+  [MCTS-All vs Random] seed=9 ... WIN (turns=24)
+
+=== MCTS-All vs Heuristic ===
+  [MCTS-All vs Heuristic] seed=0 ... WIN (turns=200)
+  [MCTS-All vs Heuristic] seed=1 ... LOSS (turns=185)
+  [MCTS-All vs Heuristic] seed=2 ... WIN (turns=108)
+  [MCTS-All vs Heuristic] seed=3 ... LOSS (turns=11)
+  [MCTS-All vs Heuristic] seed=4 ... LOSS (turns=149)
+  [MCTS-All vs Heuristic] seed=5 ... LOSS (turns=200)
+  [MCTS-All vs Heuristic] seed=6 ... LOSS (turns=98)
+  [MCTS-All vs Heuristic] seed=7 ... LOSS (turns=200)
+  [MCTS-All vs Heuristic] seed=8 ... WIN (turns=167)
+  [MCTS-All vs Heuristic] seed=9 ... WIN (turns=98)
+
+=== MCTS-All vs MCTS-Vanilla ===
+  [MCTS-All vs MCTS-Vanilla] seed=0 ... LOSS (turns=179)
+  [MCTS-All vs MCTS-Vanilla] seed=1 ... LOSS (turns=200)
+  [MCTS-All vs MCTS-Vanilla] seed=2 ... WIN (turns=53)
+  [MCTS-All vs MCTS-Vanilla] seed=3 ... WIN (turns=63)
+  [MCTS-All vs MCTS-Vanilla] seed=4 ... LOSS (turns=173)
+  [MCTS-All vs MCTS-Vanilla] seed=5 ... WIN (turns=63)
+  [MCTS-All vs MCTS-Vanilla] seed=6 ... LOSS (turns=83)
+  [MCTS-All vs MCTS-Vanilla] seed=7 ... WIN (turns=130)
+  [MCTS-All vs MCTS-Vanilla] seed=8 ... LOSS (turns=56)
+  [MCTS-All vs MCTS-Vanilla] seed=9 ... WIN (turns=186)
+
+=== MCTS-HeurRollout vs MCTS-Vanilla ===
+  [MCTS-HeurRollout vs MCTS-Vanilla] seed=0 ... LOSS (turns=74)
+  [MCTS-HeurRollout vs MCTS-Vanilla] seed=1 ... WIN (turns=127)
+  [MCTS-HeurRollout vs MCTS-Vanilla] seed=2 ... WIN (turns=39)
+  [MCTS-HeurRollout vs MCTS-Vanilla] seed=3 ... WIN (turns=83)
+  [MCTS-HeurRollout vs MCTS-Vanilla] seed=4 ... WIN (turns=23)
+  [MCTS-HeurRollout vs MCTS-Vanilla] seed=5 ... WIN (turns=20)
+  [MCTS-HeurRollout vs MCTS-Vanilla] seed=6 ... WIN (turns=13)
+  [MCTS-HeurRollout vs MCTS-Vanilla] seed=7 ... WIN (turns=10)
+  [MCTS-HeurRollout vs MCTS-Vanilla] seed=8 ... WIN (turns=57)
+  [MCTS-HeurRollout vs MCTS-Vanilla] seed=9 ... LOSS (turns=195)
+
+=== MCTS-Prior vs MCTS-HeurRollout ===
+  [MCTS-Prior vs MCTS-HeurRollout] seed=0 ... LOSS (turns=35)
+  [MCTS-Prior vs MCTS-HeurRollout] seed=1 ... LOSS (turns=84)
+  [MCTS-Prior vs MCTS-HeurRollout] seed=2 ... LOSS (turns=41)
+  [MCTS-Prior vs MCTS-HeurRollout] seed=3 ... LOSS (turns=2)
+  [MCTS-Prior vs MCTS-HeurRollout] seed=4 ... LOSS (turns=25)
+  [MCTS-Prior vs MCTS-HeurRollout] seed=5 ... LOSS (turns=2)
+  [MCTS-Prior vs MCTS-HeurRollout] seed=6 ... WIN (turns=17)
+  [MCTS-Prior vs MCTS-HeurRollout] seed=7 ... WIN (turns=200)
+  [MCTS-Prior vs MCTS-HeurRollout] seed=8 ... WIN (turns=200)
+  [MCTS-Prior vs MCTS-HeurRollout] seed=9 ... WIN (turns=107)
+
+=== MCTS-Opponent vs MCTS-Prior ===
+  [MCTS-Opponent vs MCTS-Prior] seed=0 ... WIN (turns=56)
+  [MCTS-Opponent vs MCTS-Prior] seed=1 ... WIN (turns=17)
+  [MCTS-Opponent vs MCTS-Prior] seed=2 ... WIN (turns=2)
+  [MCTS-Opponent vs MCTS-Prior] seed=3 ... WIN (turns=2)
+  [MCTS-Opponent vs MCTS-Prior] seed=4 ... WIN (turns=2)
+  [MCTS-Opponent vs MCTS-Prior] seed=5 ... WIN (turns=150)
+  [MCTS-Opponent vs MCTS-Prior] seed=6 ... WIN (turns=2)
+  [MCTS-Opponent vs MCTS-Prior] seed=7 ... WIN (turns=105)
+  [MCTS-Opponent vs MCTS-Prior] seed=8 ... WIN (turns=200)
+  [MCTS-Opponent vs MCTS-Prior] seed=9 ... LOSS (turns=200)
+
+=== MCTS-RAVE vs MCTS-Opponent ===
+  [MCTS-RAVE vs MCTS-Opponent] seed=0 ... WIN (turns=175)
+  [MCTS-RAVE vs MCTS-Opponent] seed=1 ... WIN (turns=123)
+  [MCTS-RAVE vs MCTS-Opponent] seed=2 ... LOSS (turns=63)
+  [MCTS-RAVE vs MCTS-Opponent] seed=3 ... WIN (turns=166)
+  [MCTS-RAVE vs MCTS-Opponent] seed=4 ... LOSS (turns=200)
+  [MCTS-RAVE vs MCTS-Opponent] seed=5 ... WIN (turns=200)
+  [MCTS-RAVE vs MCTS-Opponent] seed=6 ... LOSS (turns=151)
+  [MCTS-RAVE vs MCTS-Opponent] seed=7 ... LOSS (turns=130)
+  [MCTS-RAVE vs MCTS-Opponent] seed=8 ... WIN (turns=175)
+  [MCTS-RAVE vs MCTS-Opponent] seed=9 ... WIN (turns=15)
+
+=== MCTS-UCB1Tuned vs MCTS-Opponent ===
+  [MCTS-UCB1Tuned vs MCTS-Opponent] seed=0 ... LOSS (turns=116)
+  [MCTS-UCB1Tuned vs MCTS-Opponent] seed=1 ... LOSS (turns=200)
+  [MCTS-UCB1Tuned vs MCTS-Opponent] seed=2 ... LOSS (turns=200)
+  [MCTS-UCB1Tuned vs MCTS-Opponent] seed=3 ... LOSS (turns=148)
+  [MCTS-UCB1Tuned vs MCTS-Opponent] seed=4 ... WIN (turns=200)
+  [MCTS-UCB1Tuned vs MCTS-Opponent] seed=5 ... LOSS (turns=200)
+  [MCTS-UCB1Tuned vs MCTS-Opponent] seed=6 ... WIN (turns=92)
+  [MCTS-UCB1Tuned vs MCTS-Opponent] seed=7 ... LOSS (turns=200)
+  [MCTS-UCB1Tuned vs MCTS-Opponent] seed=8 ... WIN (turns=197)
+  [MCTS-UCB1Tuned vs MCTS-Opponent] seed=9 ... WIN (turns=159)
+
+=== Heuristic vs Random ===
+  [Heuristic vs Random] seed=0 ... WIN (turns=2)
+  [Heuristic vs Random] seed=1 ... WIN (turns=112)
+  [Heuristic vs Random] seed=2 ... WIN (turns=124)
+  [Heuristic vs Random] seed=3 ... WIN (turns=2)
+  [Heuristic vs Random] seed=4 ... WIN (turns=2)
+  [Heuristic vs Random] seed=5 ... WIN (turns=12)
+  [Heuristic vs Random] seed=6 ... WIN (turns=18)
+  [Heuristic vs Random] seed=7 ... WIN (turns=2)
+  [Heuristic vs Random] seed=8 ... WIN (turns=2)
+  [Heuristic vs Random] seed=9 ... WIN (turns=70)
+
+======================================================================
+Agent                          ELO  TS-Conservative
+----------------------------------------------------------------------
+Heuristic                   1618.9            0.000
+MCTS-All                    1547.9            0.000
+MCTS-RAVE                   1547.5            0.000
+MCTS-HeurRollout            1544.7            0.000
+MCTS-Opponent               1529.5            0.000
+MCTS-UCB1Tuned              1507.9            0.000
+MCTS-Vanilla                1444.6            0.000
+MCTS-Prior                  1437.5            0.000
+Random                      1321.4            0.000
+======================================================================
+
+Win rates:
+Agent                       Wins  Games   WinRate
+--------------------------------------------------
+Heuristic                     16     20     80.0%
+MCTS-HeurRollout              14     20     70.0%
+MCTS-All                      19     30     63.3%
+MCTS-Opponent                 19     30     63.3%
+MCTS-RAVE                      6     10     60.0%
+MCTS-UCB1Tuned                 4     10     40.0%
+MCTS-Vanilla                   7     20     35.0%
+MCTS-Prior                     5     20     25.0%
+Random                         0     20      0.0%
+[saved] tournament_results_fix_025/game_records.csv
+[saved] tournament_results_fix_025/ratings.csv
