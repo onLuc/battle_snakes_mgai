@@ -26,6 +26,7 @@ from agent_core import (
     heuristic_move_scores,
     is_terminal_state,
     make_state_from_game,
+    mcts_evaluate_state,
     rollout_move,
 )
 
@@ -337,13 +338,13 @@ def opponent_aware_root_scores(state: dict, snake_id: str) -> Dict[str, float]:
         for response_moves, _response_score in opponent_responses:
             planned = {snake_id: move_name, **response_moves}
             next_state = advance_state(state, planned_moves=planned, stochastic=False)
-            scenario_values.append(evaluate_state(next_state, snake_id))
+            scenario_values.append(mcts_evaluate_state(next_state, snake_id))
 
         if not scenario_values:
             next_state = advance_state(
                 state, planned_moves={snake_id: move_name}, stochastic=False
             )
-            scenario_values.append(evaluate_state(next_state, snake_id))
+            scenario_values.append(mcts_evaluate_state(next_state, snake_id))
 
         scenario_values.sort()
         worst = scenario_values[0]
@@ -389,7 +390,7 @@ def rollout(
             stochastic=True,
         )
 
-    reward = evaluate_state(rollout_state, snake_id)
+    reward = mcts_evaluate_state(rollout_state, snake_id)
     return reward, moves_made
 
 
@@ -443,9 +444,16 @@ def mcts(
     snake_id: str,
     config: MCTSConfig,
     time_budget: float = 0.92,
+    max_iterations: Optional[int] = None,
 ) -> Tuple[str, dict]:
     """
     Run MCTS from root_state for snake_id.
+
+    Stopping criterion (checked in this order):
+      1. If *max_iterations* is given, run exactly that many iterations
+         (time_budget is ignored).
+      2. Otherwise fall back to wall-clock *time_budget* seconds.
+
     Returns (move_str, stats_dict).
     """
     # Build root priors
@@ -463,14 +471,23 @@ def mcts(
         fb = fallback_move(root_state, snake_id)
         return fb, {"iterations": 0, "children": {}}
 
-    deadline = time.time() + time_budget
     iterations = 0
 
-    while time.time() < deadline:
-        leaf = tree_policy(root, config)
-        reward, moves_made = rollout(leaf.state, snake_id, config)
-        backpropagate(leaf, reward, moves_made, config.use_rave)
-        iterations += 1
+    if max_iterations is not None:
+        # ---- iteration-based budget ----
+        while iterations < max_iterations:
+            leaf = tree_policy(root, config)
+            reward, moves_made = rollout(leaf.state, snake_id, config)
+            backpropagate(leaf, reward, moves_made, config.use_rave)
+            iterations += 1
+    else:
+        # ---- time-based budget (original behaviour) ----
+        deadline = time.time() + time_budget
+        while time.time() < deadline:
+            leaf = tree_policy(root, config)
+            reward, moves_made = rollout(leaf.state, snake_id, config)
+            backpropagate(leaf, reward, moves_made, config.use_rave)
+            iterations += 1
 
     if not root.children:
         move_name = fallback_move(root_state, snake_id)
@@ -502,15 +519,24 @@ def mcts_move(
     game_state: dict,
     config: Optional[MCTSConfig] = None,
     time_budget: Optional[float] = None,
+    max_iterations: Optional[int] = None,
 ) -> Tuple[str, dict]:
     """
     Convenience wrapper: parse game_state and run MCTS.
-    Reads MCTS_BUDGET env var if time_budget is not given.
+
+    If *max_iterations* is provided it takes precedence over *time_budget*.
+    Reads MCTS_BUDGET env var if neither is given.
     Default config: ALL_IMPROVEMENTS_CONFIG.
     """
     state = make_state_from_game(game_state)
     if config is None:
         config = ALL_IMPROVEMENTS_CONFIG
-    if time_budget is None:
+    if max_iterations is None and time_budget is None:
         time_budget = float(os.environ.get("MCTS_BUDGET", "0.92"))
-    return mcts(state, state["you_id"], config=config, time_budget=time_budget)
+    return mcts(
+        state,
+        state["you_id"],
+        config=config,
+        time_budget=time_budget or 999.0,
+        max_iterations=max_iterations,
+    )

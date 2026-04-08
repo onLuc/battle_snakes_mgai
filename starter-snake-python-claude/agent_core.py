@@ -532,6 +532,93 @@ def fast_evaluate_state(state, snake_id):
     return score
 
 
+def mcts_evaluate_state(state, snake_id):
+    """Evaluation function tuned for MCTS.
+
+    Compared to evaluate_state, this function:
+      - Heavily rewards *relative* length advantage over opponents
+      - Uses stronger food urgency at ALL health levels (not just when starving)
+      - Includes a food-density bonus for being near food clusters
+      - Uses territory_score for strategic depth
+    This makes MCTS play to GROW and DOMINATE, not just survive.
+    """
+    snake = get_snake(state, snake_id)
+    if snake is None:
+        return -1.0  # normalised: dead
+    if len(state["snakes"]) == 1 and state["snakes"][0]["id"] == snake_id:
+        return 1.0   # normalised: won
+
+    my_len = snake_length(snake)
+    blocked = moving_body_cells(state)
+    blocked.discard(snake["body"][-1])
+    area = flood_fill(
+        snake["body"][0],
+        blocked - {snake["body"][0]},
+        state["width"],
+        state["height"],
+        limit=state["width"] * state["height"],
+    )
+    safe_moves = len(get_legal_moves(state, snake_id))
+    food_dist = nearest_food_distance(state, snake_id)
+    territory = territory_score(state, snake_id)
+    head = snake["body"][0]
+    board_area = state["width"] * state["height"]
+
+    score = 0.0
+
+    # --- Survival baseline ---
+    score += 0.15  # alive bonus
+
+    # --- Length: absolute + relative advantage ---
+    score += my_len * 0.025  # absolute length
+
+    # Relative length advantage is the KEY strategic signal
+    for enemy in state["snakes"]:
+        if enemy["id"] == snake_id:
+            continue
+        enemy_len = snake_length(enemy)
+        length_diff = my_len - enemy_len
+        if length_diff > 0:
+            # We're longer: big bonus, scales with advantage
+            score += min(length_diff * 0.04, 0.3)
+        elif length_diff < 0:
+            # We're shorter: penalty, urgency to eat
+            score += max(length_diff * 0.05, -0.35)
+
+    # --- Space and mobility ---
+    score += (area / board_area) * 0.15  # fraction of board reachable
+    score += safe_moves * 0.03           # mobility
+    score += (territory / board_area) * 0.10  # controlled territory
+
+    # --- Food: ALWAYS seek food, urgency scales with health ---
+    if food_dist is not None:
+        if snake["health"] < 20:
+            score -= food_dist * 0.03     # desperate
+        elif snake["health"] < 50:
+            score -= food_dist * 0.018    # hungry
+        else:
+            score -= food_dist * 0.008    # still seek food even when healthy
+
+    # --- Health ---
+    score += snake["health"] * 0.001
+
+    # --- Hazard penalty ---
+    if head in state["hazards"]:
+        score -= state["hazards"][head] * 0.06
+
+    # --- Enemy proximity: avoid bigger, chase smaller ---
+    for enemy in state["snakes"]:
+        if enemy["id"] == snake_id:
+            continue
+        enemy_dist = abs(head[0] - enemy["body"][0][0]) + abs(head[1] - enemy["body"][0][1])
+        if snake_length(enemy) >= my_len and enemy_dist <= 2:
+            score -= (3 - enemy_dist) * 0.06
+        elif snake_length(enemy) < my_len and enemy_dist <= 2:
+            score += (3 - enemy_dist) * 0.04  # chase killable opponents
+
+    return max(-1.0, min(1.0, score))  # clamp to [-1, 1]
+
+
 def heuristic_move_scores(state, snake_id):
     legal = get_legal_moves(state, snake_id)
     if not legal:
