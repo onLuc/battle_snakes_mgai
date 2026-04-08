@@ -1,0 +1,37 @@
+6 improvements over vanilla MCTS, all controlled by MCTSConfig:
+
+  ┌─────┬────────────────────┬─────────────────────────────────────────────────────────────────────────────┬────────────────────────────────┐
+  │  #  │       Stage        │                                 Improvement                                 │          Config field          │
+  ├─────┼────────────────────┼─────────────────────────────────────────────────────────────────────────────┼────────────────────────────────┤
+  │ 1   │ Expansion          │ Prior-guided move ordering (best first)                                     │ use_priors                     │
+  ├─────┼────────────────────┼─────────────────────────────────────────────────────────────────────────────┼────────────────────────────────┤
+  │ 2   │ Selection          │ PUCT — decaying heuristic prior bonus                                       │ use_priors + prior_bonus_scale │
+  ├─────┼────────────────────┼─────────────────────────────────────────────────────────────────────────────┼────────────────────────────────┤
+  │ 3   │ Selection          │ Opponent-aware root scoring (minimax blend: 55% worst, 30% avg, 15% median) │ use_opponent_model             │
+  ├─────┼────────────────────┼─────────────────────────────────────────────────────────────────────────────┼────────────────────────────────┤
+  │ 4   │ Simulation         │ Heuristic rollouts instead of uniform random                                │ use_heuristic_rollout          │
+  ├─────┼────────────────────┼─────────────────────────────────────────────────────────────────────────────┼────────────────────────────────┤
+  │ 5   │ Backprop+Selection │ RAVE/AMAF — updates all ancestor nodes for all moves seen in rollout        │ use_rave                       │
+  ├─────┼────────────────────┼─────────────────────────────────────────────────────────────────────────────┼────────────────────────────────┤
+  │ 6   │ Selection          │ UCB1-Tuned — variance-aware exploration term                                │ use_ucb1_tuned                 │
+  └─────┴────────────────────┴─────────────────────────────────────────────────────────────────────────────┴────────────────────────────────┘
+
+  7 preset configs for ablation: VANILLA_CONFIG, HEURISTIC_ROLLOUT_CONFIG, PRIOR_GUIDED_CONFIG, OPPONENT_AWARE_CONFIG, RAVE_CONFIG, UCB1_TUNED_CONFIG, ALL_IMPROVEMENTS_CONFIG
+
+  New infrastructure
+
+  - simulate_game.py — headless game engine (no battlesnake CLI needed). Implements hazard pit schedule, food spawning, full game rules via advance_state
+  - tournament.py — ablation tournament runner. Computes ELO and TrueSkill ratings. python tournament.py (full) or python tournament.py --quick (10 seeds)
+  - plot_results.py — generates 7 plots: win rates ±SE, ELO+TrueSkill bar charts, violin survival distributions, ablation ladder, pairwise win matrix, ELO progression, survival
+  boxplot
+  - mcts_vanilla_main.py, mcts_rave_main.py — new server entry points
+  - teamname.py — contest submission file
+
+  To run the full ablation study
+
+  # Tournament (30 seeds × 9 matchups, ~30-40 min with default 0.10s budget)
+  NUM_SEEDS=30 MCTS_BUDGET=0.10 python tournament.py
+
+  # Generate all 7 plots
+  python plot_results.py
+  # → tournament_results/plots/*.png

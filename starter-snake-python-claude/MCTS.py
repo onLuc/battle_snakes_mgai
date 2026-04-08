@@ -1,8 +1,22 @@
-import os
+"""
+MCTS with 6 configurable improvements:
+  1. Prior-guided expansion      (Expansion)
+  2. PUCT selection              (Selection)
+  3. Opponent-aware root scoring (Selection)
+  4. Heuristic rollouts          (Simulation)
+  5. RAVE / AMAF                 (Backprop + Selection)
+  6. UCB1-Tuned                  (Selection)
+
+All improvements are controlled by MCTSConfig.
+"""
+
 import math
+import os
 import random
 import time
+from dataclasses import dataclass, field
 from itertools import product
+from typing import Dict, List, Optional, Tuple
 
 from agent_core import (
     advance_state,
@@ -16,15 +30,142 @@ from agent_core import (
 )
 
 
+# ---------------------------------------------------------------------------
+# Configuration
+# ---------------------------------------------------------------------------
+
+@dataclass
+class MCTSConfig:
+    """Controls which MCTS improvements are active."""
+
+    # Improvement 1 & 2: Prior-guided expansion + PUCT selection
+    use_priors: bool = True
+    prior_bonus_scale: float = 18.0   # multiplier for prior bonus
+    puct_decay: bool = True            # bonus decays with visits
+
+    # Improvement 3: Opponent-aware root scoring (minimax blend)
+    use_opponent_model: bool = True
+    minimax_top_n: int = 2            # opponent moves considered
+
+    # Improvement 4: Heuristic rollouts
+    use_heuristic_rollout: bool = True
+    rollout_depth: int = 8
+
+    # Improvement 5: RAVE / AMAF
+    use_rave: bool = False
+    rave_k: float = 500.0             # controls RAVE-UCT blend speed
+
+    # Improvement 6: UCB1-Tuned
+    use_ucb1_tuned: bool = False
+
+    # Generic exploration constant
+    exploration: float = 1.05
+
+    def copy_with(self, **kwargs) -> "MCTSConfig":
+        import copy
+        obj = copy.copy(self)
+        for k, v in kwargs.items():
+            setattr(obj, k, v)
+        return obj
+
+
+# Preset configurations ---------------------------------------------------
+
+VANILLA_CONFIG = MCTSConfig(
+    use_priors=False,
+    use_opponent_model=False,
+    use_heuristic_rollout=False,
+    use_rave=False,
+    use_ucb1_tuned=False,
+)
+
+HEURISTIC_ROLLOUT_CONFIG = MCTSConfig(
+    use_priors=False,
+    use_opponent_model=False,
+    use_heuristic_rollout=True,
+    use_rave=False,
+    use_ucb1_tuned=False,
+)
+
+PRIOR_GUIDED_CONFIG = MCTSConfig(
+    use_priors=True,
+    use_opponent_model=False,
+    use_heuristic_rollout=True,
+    use_rave=False,
+    use_ucb1_tuned=False,
+)
+
+OPPONENT_AWARE_CONFIG = MCTSConfig(
+    use_priors=True,
+    use_opponent_model=True,
+    use_heuristic_rollout=True,
+    use_rave=False,
+    use_ucb1_tuned=False,
+)
+
+RAVE_CONFIG = MCTSConfig(
+    use_priors=True,
+    use_opponent_model=True,
+    use_heuristic_rollout=True,
+    use_rave=True,
+    use_ucb1_tuned=False,
+)
+
+UCB1_TUNED_CONFIG = MCTSConfig(
+    use_priors=True,
+    use_opponent_model=True,
+    use_heuristic_rollout=True,
+    use_rave=False,
+    use_ucb1_tuned=True,
+)
+
+ALL_IMPROVEMENTS_CONFIG = MCTSConfig(
+    use_priors=True,
+    use_opponent_model=True,
+    use_heuristic_rollout=True,
+    use_rave=True,
+    use_ucb1_tuned=True,
+)
+
+
+# ---------------------------------------------------------------------------
+# Node
+# ---------------------------------------------------------------------------
+
 class Node:
-    def __init__(self, state, snake_id, parent=None, move=None, priors=None):
+    __slots__ = (
+        "state", "snake_id", "parent", "move", "children",
+        "priors", "untried_moves",
+        "visits", "value", "value_sq",
+        "rave_visits", "rave_value",
+    )
+
+    def __init__(
+        self,
+        state: dict,
+        snake_id: str,
+        parent: Optional["Node"] = None,
+        move: Optional[str] = None,
+        priors: Optional[Dict[str, float]] = None,
+        config: Optional[MCTSConfig] = None,
+    ):
         self.state = state
         self.snake_id = snake_id
         self.parent = parent
         self.move = move
-        self.children = []
-        self.priors = priors if priors is not None else heuristic_move_scores(state, snake_id)
-        self.untried_moves = [
+        self.children: List["Node"] = []
+
+        if priors is not None:
+            self.priors = priors
+        elif config is not None and config.use_priors:
+            self.priors = heuristic_move_scores(state, snake_id)
+        else:
+            # Uniform priors — still need move ordering
+            legal = get_legal_moves(state, snake_id)
+            self.priors = {m: 0.0 for m in legal}
+
+        # Order untried moves by prior score (best first)
+        self.untried_moves: List[str] = [
             move_name
             for move_name, _score in sorted(
                 self.priors.items(),
@@ -32,55 +173,107 @@ class Node:
                 reverse=True,
             )
         ]
-        self.visits = 0
-        self.value = 0.0
 
-    def is_terminal(self):
+        self.visits: int = 0
+        self.value: float = 0.0
+        self.value_sq: float = 0.0   # for UCB1-Tuned variance
+
+        # RAVE / AMAF tables keyed by move string
+        self.rave_visits: Dict[str, int] = {}
+        self.rave_value: Dict[str, float] = {}
+
+    def is_terminal(self) -> bool:
         return is_terminal_state(self.state, self.snake_id)
 
-    def fully_expanded(self):
+    def fully_expanded(self) -> bool:
         return not self.untried_moves
 
-    def expand(self):
+    def expand(self, config: MCTSConfig) -> "Node":
         move_name = self.untried_moves.pop(0)
         next_state = advance_state(
             self.state,
             planned_moves={self.snake_id: move_name},
             stochastic=True,
         )
-        child = Node(next_state, self.snake_id, parent=self, move=move_name)
+        child = Node(
+            next_state,
+            self.snake_id,
+            parent=self,
+            move=move_name,
+            config=config,
+        )
         self.children.append(child)
         return child
 
-    def best_child(self, exploration=1.05):
+    def best_child(self, config: MCTSConfig) -> "Node":
         best_score = float("-inf")
-        best_nodes = []
+        best_nodes: List["Node"] = []
         log_parent = math.log(max(1, self.visits))
+
         prior_values = list(self.priors.values())
         min_prior = min(prior_values) if prior_values else 0.0
         max_prior = max(prior_values) if prior_values else 1.0
+
         for child in self.children:
             if child.visits == 0:
                 score = float("inf")
             else:
-                exploit = child.value / child.visits
-                explore = exploration * math.sqrt(log_parent / child.visits)
-                raw_prior = self.priors.get(child.move, 0.0)
-                if max_prior > min_prior:
-                    normalized_prior = (raw_prior - min_prior) / (max_prior - min_prior)
+                n = child.visits
+                exploit = child.value / n
+
+                # UCB1-Tuned or standard exploration
+                if config.use_ucb1_tuned:
+                    variance = child.value_sq / n - (exploit ** 2)
+                    variance = max(0.0, variance)
+                    tuned = variance + math.sqrt(2.0 * log_parent / n)
+                    explore = config.exploration * math.sqrt(
+                        log_parent / n * min(0.25, tuned)
+                    )
                 else:
-                    normalized_prior = 0.5
-                prior_bonus = normalized_prior * 18.0 / (1 + child.visits)
+                    explore = config.exploration * math.sqrt(log_parent / n)
+
+                # PUCT prior bonus (decays with visits)
+                prior_bonus = 0.0
+                if config.use_priors:
+                    raw_prior = self.priors.get(child.move, 0.0)
+                    if max_prior > min_prior:
+                        norm_prior = (raw_prior - min_prior) / (max_prior - min_prior)
+                    else:
+                        norm_prior = 0.5
+                    if config.puct_decay:
+                        prior_bonus = norm_prior * config.prior_bonus_scale / (1 + n)
+                    else:
+                        prior_bonus = norm_prior * config.prior_bonus_scale
+
+                # RAVE / AMAF blend
+                if config.use_rave:
+                    rv = self.rave_visits.get(child.move, 0)
+                    rval = self.rave_value.get(child.move, 0.0)
+                    if rv > 0:
+                        beta = math.sqrt(
+                            config.rave_k / (3.0 * n + config.rave_k)
+                        )
+                        rave_exploit = rval / rv
+                        exploit = (1.0 - beta) * exploit + beta * rave_exploit
+
                 score = exploit + explore + prior_bonus
+
             if score > best_score:
                 best_score = score
                 best_nodes = [child]
             elif score == best_score:
                 best_nodes.append(child)
+
         return random.choice(best_nodes)
 
 
-def likely_moves_for_snake(state, snake_id, top_n=2):
+# ---------------------------------------------------------------------------
+# Opponent modeling (kept from original)
+# ---------------------------------------------------------------------------
+
+def likely_moves_for_snake(
+    state: dict, snake_id: str, top_n: int = 2
+) -> List[Tuple[str, float]]:
     scores = heuristic_move_scores(state, snake_id)
     if not scores:
         return []
@@ -95,8 +288,10 @@ def likely_moves_for_snake(state, snake_id, top_n=2):
     return selected[:top_n] if selected else ranked[:top_n]
 
 
-def opponent_joint_responses(state, snake_id, max_joint=6):
-    opponents = [snake for snake in state["snakes"] if snake["id"] != snake_id]
+def opponent_joint_responses(
+    state: dict, snake_id: str, max_joint: int = 6
+) -> List[Tuple[Dict[str, str], float]]:
+    opponents = [s for s in state["snakes"] if s["id"] != snake_id]
     if not opponents:
         return [({}, 0.0)]
 
@@ -125,7 +320,7 @@ def opponent_joint_responses(state, snake_id, max_joint=6):
     return joint[:max_joint]
 
 
-def opponent_aware_root_scores(state, snake_id):
+def opponent_aware_root_scores(state: dict, snake_id: str) -> Dict[str, float]:
     legal = get_legal_moves(state, snake_id)
     if not legal:
         return {}
@@ -141,63 +336,136 @@ def opponent_aware_root_scores(state, snake_id):
             scenario_values.append(evaluate_state(next_state, snake_id))
 
         if not scenario_values:
-            next_state = advance_state(state, planned_moves={snake_id: move_name}, stochastic=False)
+            next_state = advance_state(
+                state, planned_moves={snake_id: move_name}, stochastic=False
+            )
             scenario_values.append(evaluate_state(next_state, snake_id))
 
         scenario_values.sort()
         worst = scenario_values[0]
         average = sum(scenario_values) / len(scenario_values)
         median = scenario_values[len(scenario_values) // 2]
-        root_scores[move_name] = (0.55 * worst) + (0.30 * average) + (0.15 * median)
+        root_scores[move_name] = 0.55 * worst + 0.30 * average + 0.15 * median
 
     return root_scores
 
 
-def rollout(state, snake_id, depth=8):
+# ---------------------------------------------------------------------------
+# Rollout
+# ---------------------------------------------------------------------------
+
+def rollout(
+    state: dict, snake_id: str, config: MCTSConfig
+) -> Tuple[float, List[str]]:
+    """
+    Simulate a game from `state`.
+    Returns (reward, moves_made_list) where moves_made_list tracks moves
+    taken by snake_id during the rollout (used for RAVE / AMAF updates).
+    """
     rollout_state = state
-    for _ in range(depth):
+    moves_made: List[str] = []
+
+    for _ in range(config.rollout_depth):
         if is_terminal_state(rollout_state, snake_id):
             break
-        move_name = rollout_move(rollout_state, snake_id)
+
+        if config.use_heuristic_rollout:
+            move_name = rollout_move(rollout_state, snake_id)
+        else:
+            legal = get_legal_moves(rollout_state, snake_id)
+            if not legal:
+                move_name = fallback_move(rollout_state, snake_id)
+            else:
+                move_name = random.choice(legal)
+
+        moves_made.append(move_name)
         rollout_state = advance_state(
             rollout_state,
             planned_moves={snake_id: move_name},
             stochastic=True,
         )
-    return evaluate_state(rollout_state, snake_id)
+
+    reward = evaluate_state(rollout_state, snake_id)
+    return reward, moves_made
 
 
-def backpropagate(node, reward):
-    current = node
+# ---------------------------------------------------------------------------
+# Backpropagation
+# ---------------------------------------------------------------------------
+
+def backpropagate(
+    node: Node, reward: float, moves_in_rollout: List[str], use_rave: bool
+) -> None:
+    """
+    Walk up the tree, updating visit counts, values, and RAVE tables.
+    AMAF: for every ancestor, update rave_visits/rave_value for ALL moves
+    that appeared in the rollout.
+    """
+    current: Optional[Node] = node
     while current is not None:
         current.visits += 1
         current.value += reward
+        current.value_sq += reward * reward
+
+        if use_rave and moves_in_rollout:
+            for m in moves_in_rollout:
+                current.rave_visits[m] = current.rave_visits.get(m, 0) + 1
+                current.rave_value[m] = current.rave_value.get(m, 0.0) + reward
+
         current = current.parent
 
 
-def tree_policy(root):
+# ---------------------------------------------------------------------------
+# Tree policy
+# ---------------------------------------------------------------------------
+
+def tree_policy(root: Node, config: MCTSConfig) -> Node:
     node = root
     while not node.is_terminal():
         if not node.fully_expanded():
-            return node.expand()
+            return node.expand(config)
         if not node.children:
             return node
-        node = node.best_child()
+        node = node.best_child(config)
     return node
 
 
-def mcts(root_state, snake_id, time_budget=0.92):
-    root_priors = opponent_aware_root_scores(root_state, snake_id)
-    root = Node(root_state, snake_id, priors=root_priors)
-    if not root.untried_moves:
-        return fallback_move(root_state, snake_id), {"iterations": 0, "children": {}}
+# ---------------------------------------------------------------------------
+# Main MCTS routine
+# ---------------------------------------------------------------------------
+
+def mcts(
+    root_state: dict,
+    snake_id: str,
+    config: MCTSConfig,
+    time_budget: float = 0.92,
+) -> Tuple[str, dict]:
+    """
+    Run MCTS from root_state for snake_id.
+    Returns (move_str, stats_dict).
+    """
+    # Build root priors
+    if config.use_opponent_model:
+        root_priors = opponent_aware_root_scores(root_state, snake_id)
+    elif config.use_priors:
+        root_priors = heuristic_move_scores(root_state, snake_id)
+    else:
+        legal = get_legal_moves(root_state, snake_id)
+        root_priors = {m: 0.0 for m in legal}
+
+    root = Node(root_state, snake_id, priors=root_priors, config=config)
+
+    if not root.untried_moves and not root.children:
+        fb = fallback_move(root_state, snake_id)
+        return fb, {"iterations": 0, "children": {}}
 
     deadline = time.time() + time_budget
     iterations = 0
+
     while time.time() < deadline:
-        leaf = tree_policy(root)
-        reward = rollout(leaf.state, snake_id)
-        backpropagate(leaf, reward)
+        leaf = tree_policy(root, config)
+        reward, moves_made = rollout(leaf.state, snake_id, config)
+        backpropagate(leaf, reward, moves_made, config.use_rave)
         iterations += 1
 
     if not root.children:
@@ -211,6 +479,7 @@ def mcts(root_state, snake_id, time_budget=0.92):
             child.visits,
         ),
     )
+
     stats = {
         "iterations": iterations,
         "root_priors": {move: round(score, 2) for move, score in root_priors.items()},
@@ -225,8 +494,19 @@ def mcts(root_state, snake_id, time_budget=0.92):
     return best_child.move, stats
 
 
-def mcts_move(game_state, time_budget=None):
+def mcts_move(
+    game_state: dict,
+    config: Optional[MCTSConfig] = None,
+    time_budget: Optional[float] = None,
+) -> Tuple[str, dict]:
+    """
+    Convenience wrapper: parse game_state and run MCTS.
+    Reads MCTS_BUDGET env var if time_budget is not given.
+    Default config: ALL_IMPROVEMENTS_CONFIG.
+    """
     state = make_state_from_game(game_state)
+    if config is None:
+        config = ALL_IMPROVEMENTS_CONFIG
     if time_budget is None:
         time_budget = float(os.environ.get("MCTS_BUDGET", "0.92"))
-    return mcts(state, state["you_id"], time_budget=time_budget)
+    return mcts(state, state["you_id"], config=config, time_budget=time_budget)
