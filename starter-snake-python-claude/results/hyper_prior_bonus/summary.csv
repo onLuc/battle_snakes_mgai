@@ -1,0 +1,4 @@
+run_dir,parameter_name,parameter_value,focus_agent,elo,ts_conservative,games,wins,win_rate,avg_survival,avg_final_length,avg_placement,game_cap_rate,vs_heuristic_win_rate,vs_mcts_vanilla_win_rate,vs_random_win_rate
+prior_bonus_scale_1p5,prior_bonus_scale,1.5,MCTS-All-prior_bonus_scale-1p5,1562.79,18.1397,30.0,19.0,0.6333333333333333,117.9,16.2,1.3666666666666667,0.2,0.5,0.4,1.0
+prior_bonus_scale_4p0,prior_bonus_scale,4.0,MCTS-All-prior_bonus_scale-4p0,1604.39,19.4985,30.0,23.0,0.7666666666666667,111.43333333333334,15.4,1.2333333333333334,0.25,0.6,0.7,1.0
+prior_bonus_scale_8p0,prior_bonus_scale,8.0,MCTS-All-prior_bonus_scale-8p0,1567.66,18.5081,30.0,19.0,0.6333333333333333,122.26666666666667,16.1,1.3666666666666667,0.26666666666666666,0.3,0.6,1.0

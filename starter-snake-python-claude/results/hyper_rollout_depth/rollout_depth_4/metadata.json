@@ -1,0 +1,51 @@
+{
+  "agent_specs": [
+    {
+      "agent_type": "random",
+      "config_name": null,
+      "config_overrides": {},
+      "name": "Random"
+    },
+    {
+      "agent_type": "heuristic",
+      "config_name": null,
+      "config_overrides": {},
+      "name": "Heuristic"
+    },
+    {
+      "agent_type": "mcts",
+      "config_name": "VANILLA_CONFIG",
+      "config_overrides": {},
+      "name": "MCTS-Vanilla"
+    },
+    {
+      "agent_type": "mcts",
+      "config_name": "ALL_IMPROVEMENTS_CONFIG",
+      "config_overrides": {
+        "rollout_depth": 4
+      },
+      "name": "MCTS-All-rollout_depth-4"
+    }
+  ],
+  "base_config_name": "ALL_IMPROVEMENTS_CONFIG",
+  "focus_agent": "MCTS-All-rollout_depth-4",
+  "max_turns": 200,
+  "mcts_iterations": 50,
+  "num_agents": 4,
+  "num_seeds": 10,
+  "parameter_name": "rollout_depth",
+  "parameter_value": 4,
+  "preset": "rollout_depth_sweep",
+  "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+  ]
+}
