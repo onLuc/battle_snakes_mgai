@@ -1,0 +1,319 @@
+================================================================================
+Current Results Analysis
+================================================================================
+
+Date: April 2026
+Scope: completed results in results/ only
+Excluded: dedicated MCTS-suite-vs-Heuristic run still in progress
+
+This analysis is based on the completed outputs currently present in:
+
+  - results/tournament/game_records.csv
+  - results/hyper_iterations/summary.csv
+  - results/hyper_rollout_depth/summary.csv
+  - results/hyper_exploration/summary.csv
+  - results/hyper_prior_bonus/summary.csv
+
+Because results/tournament/ratings.csv is currently missing, tournament-wide
+interpretation below is based on the raw game records rather than on finalized
+ELO/TrueSkill tables.
+
+--------------------------------------------------------------------------------
+1. Completed Dataset Summary
+--------------------------------------------------------------------------------
+
+Tournament dataset:
+  - 320 completed games
+  - 6 agents present in the CSV:
+      Heuristic
+      MCTS-All
+      MCTS-HeurRollout
+      MCTS-Prior
+      MCTS-Vanilla
+      Random
+
+Hyperparameter sweeps:
+  - 4 sweep families completed
+  - each sweep setting evaluated over 30 games
+  - focus agent in each sweep is an MCTS-All variant
+  - opponents are:
+      Random
+      Heuristic
+      MCTS-Vanilla
+
+--------------------------------------------------------------------------------
+2. Tournament Results
+--------------------------------------------------------------------------------
+
+Per-agent tournament summary computed from results/tournament/game_records.csv:
+
+  Agent             Win rate   Avg survival   Avg final length   Avg placement
+  ---------------------------------------------------------------------------
+  MCTS-All          74.17%     125.04         17.80              1.258
+  Heuristic         72.50%     122.22         16.57              1.275
+  MCTS-Vanilla      55.00%     125.23         15.51              1.450
+  MCTS-HeurRollout  32.50%     165.23         21.23              1.675
+  MCTS-Prior        15.00%      75.10         11.10              1.850
+  Random             0.83%      50.86          5.48              1.992
+
+Main conclusions:
+
+  1. MCTS-All is the strongest overall completed agent in the current dataset.
+     It has the best win rate and best average placement.
+
+  2. Heuristic is very close to MCTS-All.
+     The gap between them is small, so the current completed data supports
+     "MCTS-All is strongest overall" more strongly than "MCTS-All clearly
+     dominates Heuristic."
+
+  3. MCTS-Vanilla is competitive against weaker agents but clearly behind the
+     top two.
+
+  4. MCTS-HeurRollout is unusual.
+     It has a low win rate, but very high average survival and high final
+     length. This suggests it often survives for a long time without converting
+     that survival into wins.
+
+  5. MCTS-Prior underperforms badly in the current completed tournament.
+
+  6. Random is only a floor baseline and is not competitive.
+
+--------------------------------------------------------------------------------
+3. Key Tournament Matchups
+--------------------------------------------------------------------------------
+
+3.1  Heuristic vs MCTS-All
+--------------------------
+
+Record:
+  - Heuristic win rate: 47.5%
+  - MCTS-All win rate: 52.5%
+  - Average game length: 161.18 turns
+
+Interpretation:
+  This remains the most important close matchup. MCTS-All has a narrow edge,
+  but the result is close enough that it should be described carefully. The
+  current completed tournament supports the claim that MCTS-All is slightly
+  stronger, not dramatically stronger.
+
+3.2  Heuristic vs MCTS-Vanilla
+------------------------------
+
+Record:
+  - Heuristic win rate: 62.5%
+  - MCTS-Vanilla win rate: 37.5%
+  - Average game length: 165.43 turns
+
+Interpretation:
+  The heuristic policy is clearly stronger than vanilla MCTS in the current
+  setup. This supports the report argument that plain MCTS needs additional
+  guidance to perform well in this environment.
+
+3.3  MCTS-Vanilla vs MCTS-All
+-----------------------------
+
+Record:
+  - MCTS-Vanilla win rate: 30.0%
+  - MCTS-All win rate: 70.0%
+  - Average game length: 157.90 turns
+
+Interpretation:
+  This is the cleanest completed evidence that the improved MCTS design helps.
+  MCTS-All strongly outperforms MCTS-Vanilla.
+
+3.4  Heuristic vs MCTS-HeurRollout
+----------------------------------
+
+Record:
+  - Heuristic win rate: 67.5%
+  - MCTS-HeurRollout win rate: 32.5%
+  - Average game length: 165.23 turns
+
+Interpretation:
+  Heuristic rollouts alone are not enough to match the full heuristic agent.
+  In the current completed data, this agent survives for a long time but does
+  not win often enough.
+
+3.5  Heuristic vs MCTS-Prior
+----------------------------
+
+Record:
+  - Heuristic win rate: 85.0%
+  - MCTS-Prior win rate: 15.0%
+  - Average game length: 75.10 turns
+
+Interpretation:
+  This is the weakest completed MCTS variant in the current tournament. The
+  result suggests that priors alone, without the stronger full configuration,
+  are not sufficient and may be actively miscalibrated in this setting.
+
+--------------------------------------------------------------------------------
+4. Interpretation of the Completed Tournament
+--------------------------------------------------------------------------------
+
+The completed tournament supports four strong claims:
+
+  1. MCTS-All is the best overall agent in the completed results.
+
+  2. Heuristic is a genuinely strong baseline and remains very close to
+     MCTS-All.
+
+  3. MCTS-Vanilla is not enough on its own; it loses to both Heuristic and
+     MCTS-All.
+
+  4. Some partial MCTS variants do not improve monotonically.
+     In particular, MCTS-HeurRollout and MCTS-Prior underperform badly in the
+     currently completed tournament data.
+
+That last point is important for the report: "adding one improvement" does not
+guarantee better performance. The completed evidence suggests that MCTS gains
+depend strongly on how the individual modifications interact.
+
+--------------------------------------------------------------------------------
+5. Hyperparameter Results
+--------------------------------------------------------------------------------
+
+5.1  Iterations Sweep
+---------------------
+
+Summary from results/hyper_iterations/summary.csv:
+
+  Setting   Win rate   ELO      TS-cons   Vs Heuristic   Vs Vanilla   Vs Random
+  ---------------------------------------------------------------------------
+  25        66.67%     1587.60  18.6429   40%            60%          100%
+  50        63.33%     1569.00  19.8533   30%            70%           90%
+  100       70.00%     1614.39  21.5618   40%            70%          100%
+
+Interpretation:
+  100 iterations is the strongest completed setting overall.
+  50 iterations is weaker than both 25 and 100 by win rate.
+  Against Heuristic, both 25 and 100 reach the same 40% win rate in this
+  completed dataset, while 50 drops to 30%.
+
+Most defensible conclusion:
+  Increasing the search budget to 100 iterations helps overall, but the gains
+  are not perfectly monotonic at the smaller settings.
+
+5.2  Rollout Depth Sweep
+------------------------
+
+Summary from results/hyper_rollout_depth/summary.csv:
+
+  Setting   Win rate   ELO      TS-cons   Vs Heuristic   Vs Vanilla   Vs Random
+  ---------------------------------------------------------------------------
+  4         73.33%     1596.15  19.9190   50%            70%          100%
+  8         76.67%     1630.66  20.6179   50%            80%          100%
+  12        76.67%     1608.08  20.4147   50%            90%           90%
+
+Interpretation:
+  Rollout depth 8 is the strongest completed setting by ELO and conservative
+  TrueSkill. Depth 12 matches it on overall win rate but is slightly weaker by
+  rating and loses a little reliability against Random.
+
+Most defensible conclusion:
+  A mid-to-deep rollout horizon helps, and 8 appears to be the best balanced
+  completed setting in the current data.
+
+5.3  Exploration Sweep
+----------------------
+
+Summary from results/hyper_exploration/summary.csv:
+
+  Setting   Win rate   ELO      TS-cons   Vs Heuristic   Vs Vanilla   Vs Random
+  ---------------------------------------------------------------------------
+  0.6       66.67%     1600.10  21.6143   40%            60%          100%
+  1.05      60.00%     1552.07  17.9343   30%            60%           90%
+  1.4       73.33%     1589.31  18.8428   60%            60%          100%
+
+Interpretation:
+  The strongest completed setting depends on metric:
+    - 1.4 is best by overall win rate and by win rate vs Heuristic
+    - 0.6 is best by ELO and conservative TrueSkill
+
+Most defensible conclusion:
+  The default-like setting 1.05 is not the best completed option in this data.
+  Higher exploration helps head-to-head against Heuristic, while lower
+  exploration produces the best rating summary.
+
+5.4  Prior Bonus Scale Sweep
+----------------------------
+
+Summary from results/hyper_prior_bonus/summary.csv:
+
+  Setting   Win rate   ELO      TS-cons   Vs Heuristic   Vs Vanilla   Vs Random
+  ---------------------------------------------------------------------------
+  1.5       63.33%     1562.79  18.1397   50%            40%          100%
+  4.0       76.67%     1604.39  19.4985   60%            70%          100%
+  8.0       63.33%     1567.66  18.5081   30%            60%          100%
+
+Interpretation:
+  4.0 is clearly the best completed setting in this sweep. The lower and
+  higher values both underperform it.
+
+Most defensible conclusion:
+  The prior bonus appears sensitive to tuning, and the current default value
+  of 4.0 is well supported by the completed sweep results.
+
+--------------------------------------------------------------------------------
+6. Hyperparameter Conclusions
+--------------------------------------------------------------------------------
+
+The completed hyperparameter sweeps support the following settings as the
+strongest current choices:
+
+  - iterations: 100
+  - rollout_depth: 8
+  - exploration: ambiguous between 0.6 and 1.4 depending on metric
+  - prior_bonus_scale: 4.0
+
+If one balanced recommendation must be made from the completed data:
+
+  iterations = 100
+  rollout_depth = 8
+  prior_bonus_scale = 4.0
+
+For exploration, the completed evidence is mixed:
+  - use 1.4 if prioritizing direct performance against Heuristic
+  - use 0.6 if prioritizing overall rating stability
+
+--------------------------------------------------------------------------------
+7. Limitations of the Current Analysis
+--------------------------------------------------------------------------------
+
+This analysis is intentionally limited to completed outputs. Important caveats:
+
+  1. The dedicated MCTS-suite-vs-Heuristic experiment is still running and is
+     not included here.
+
+  2. The tournament results directory is incomplete.
+     ratings.csv and matchup_summary.csv are missing, so tournament-wide
+     conclusions here are based on raw game records only.
+
+  3. The current run_experiments.py comments do not perfectly match the actual
+     tournament CSV contents, so the analysis is based on observed outputs
+     rather than on script comments.
+
+--------------------------------------------------------------------------------
+8. Practical Summary for the Report
+--------------------------------------------------------------------------------
+
+If the report must be updated right now, before the remaining Heuristic-anchor
+suite finishes, the most accurate completed conclusions are:
+
+  - MCTS-All is the strongest completed agent overall.
+  - Heuristic is a very strong baseline and is close to MCTS-All.
+  - Vanilla MCTS is clearly weaker than both.
+  - Partial improvements do not all help equally; in the current completed
+    tournament, MCTS-HeurRollout and especially MCTS-Prior underperform.
+  - Hyperparameter sensitivity is real:
+      100 iterations helps
+      rollout depth 8 looks strongest
+      prior bonus scale 4.0 is best supported
+      exploration needs more careful interpretation
+
+These conclusions should later be revised only if the still-running dedicated
+MCTS-vs-Heuristic suite changes the interpretation of the staged MCTS variants.
+
+================================================================================
+End of Current Results Analysis
+================================================================================

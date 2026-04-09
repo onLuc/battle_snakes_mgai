@@ -1,0 +1,221 @@
+================================================================================
+Current Experiments Documentation
+================================================================================
+
+Date: April 2026
+Scope: current active experiment pipeline and completed result folders
+
+This document describes the current state of the experiment code and the
+generated results. It is written against the active workflow built around:
+
+  - run_experiments.py
+  - plot_all.py
+  - results/
+
+It does NOT describe the older experiment_runs/ workflow as the main path,
+although those folders still exist in the repository.
+
+--------------------------------------------------------------------------------
+1. Current Active Pipeline
+--------------------------------------------------------------------------------
+
+The active experiment workflow is:
+
+  1. run_experiments.py
+     Runs the experiment families and writes CSV outputs into results/
+
+  2. plot_all.py
+     Reads the CSV outputs from results/ and generates the final plots
+
+The script comments and the current output folder indicate that the intended
+pipeline is:
+
+  results/
+    tournament/
+    hyper_iterations/
+    hyper_rollout_depth/
+    hyper_exploration/
+    hyper_prior_bonus/
+
+The plot entrypoint is:
+
+  python plot_all.py --results-dir results
+
+--------------------------------------------------------------------------------
+2. What run_experiments.py Does
+--------------------------------------------------------------------------------
+
+run_experiments.py is designed as an idempotent experiment runner.
+
+Main features:
+  - skips any matchup/seed already present in game_records.csv
+  - supports resume after interruption
+  - writes metadata.json for reproducibility
+  - writes ratings.csv and matchup_summary.csv when a run finalizes
+  - supports multiprocessing
+
+Two experiment families are implemented:
+
+  1. Tournament
+     Intended as the main multi-agent comparison study.
+
+  2. Hyperparameter sweeps
+     Focused studies for MCTS-All variants against:
+       - Random
+       - Heuristic
+       - MCTS-Vanilla
+
+Default settings in the current script:
+  - seeds: 40
+  - base MCTS iterations: 50
+  - max turns: 200
+  - results dir: results
+
+Hyperparameter sweeps currently implemented:
+  - iterations: 25, 50, 100
+  - rollout_depth: 4, 8, 12
+  - exploration: 0.6, 1.05, 1.4
+  - prior_bonus_scale: 1.5, 4.0, 8.0
+
+--------------------------------------------------------------------------------
+3. Important Review Finding: Script Comments vs Current Outputs
+--------------------------------------------------------------------------------
+
+There is a mismatch between the current code comments/configuration and the
+actual completed result files.
+
+In run_experiments.py:
+  TOURNAMENT_AGENTS is defined as:
+    Random, Heuristic, MCTS-Vanilla, MCTS-All
+
+However, the existing results/tournament/game_records.csv contains six agents:
+  - Random
+  - Heuristic
+  - MCTS-Vanilla
+  - MCTS-HeurRollout
+  - MCTS-Prior
+  - MCTS-All
+
+This means the current tournament results were likely produced by an earlier
+or partially modified version of the runner, or the script was changed after
+the CSV was generated.
+
+Practical consequence:
+  The completed tournament data is still valid as data, but the code comments
+  should not be treated as a perfect description of what is already in the
+  results folder.
+
+--------------------------------------------------------------------------------
+4. What plot_all.py Does
+--------------------------------------------------------------------------------
+
+plot_all.py reads the CSV outputs and generates:
+
+Tournament plots:
+  - win_rates.png
+  - elo_ratings.png
+  - survival_boxplot.png
+  - win_matrix.png
+  - mcts_vs_heuristic.png
+  - elo_progression.png
+
+Sweep plots:
+  - one sweep figure per hyperparameter family
+
+Combined overview:
+  - results/hyperparameter_overview.png
+
+The script is designed well for report generation because it focuses on the
+actual report questions:
+  - overall tournament ranking
+  - MCTS vs Heuristic comparison
+  - hyperparameter sensitivity
+
+--------------------------------------------------------------------------------
+5. Current State of the Results Folder
+--------------------------------------------------------------------------------
+
+Completed and present:
+  - results/tournament/game_records.csv
+  - results/tournament/plots/
+  - results/hyper_iterations/summary.csv
+  - results/hyper_rollout_depth/summary.csv
+  - results/hyper_exploration/summary.csv
+  - results/hyper_prior_bonus/summary.csv
+  - all four sweep plots
+  - combined hyperparameter_overview.png
+
+Important missing files in results/tournament/:
+  - ratings.csv
+  - matchup_summary.csv
+  - metadata.json
+
+This is notable because run_experiments.py is supposed to write those files at
+the end of the tournament finalization stage.
+
+Interpretation:
+  The tournament results directory appears usable for analysis because the raw
+  game_records.csv and plot outputs exist, but it does not look fully finalized.
+
+--------------------------------------------------------------------------------
+6. Current Experimental Coverage
+--------------------------------------------------------------------------------
+
+The completed outputs already support the following report sections:
+
+  A. Heuristic vs Random
+     Available directly from tournament data.
+
+  B. MCTS-All vs MCTS-Vanilla
+     Available directly from tournament data.
+
+  C. Overall tournament comparison
+     Available directly from tournament data.
+
+  D. Hyperparameter effects
+     Available from the four sweep summary.csv files.
+
+Still pending / excluded from this document:
+
+  E. Dedicated full MCTS-variant-vs-Heuristic suite
+     This is explicitly excluded here because that run is still in progress.
+
+--------------------------------------------------------------------------------
+7. Recommended Interpretation Rule
+--------------------------------------------------------------------------------
+
+For the report, use the current results/ folder as follows:
+
+  - Use results/tournament/ for:
+      heuristic baseline evidence
+      tournament ranking
+      generic MCTS vs Heuristic comparison
+      qualitative survival and matchup patterns
+
+  - Use results/hyper_*/summary.csv for:
+      parameter-sensitivity analysis
+
+  - Do NOT claim conclusions from the dedicated MCTS-suite-vs-Heuristic study
+    until that run is complete and its CSVs are finalized.
+
+--------------------------------------------------------------------------------
+8. Recommended Cleanup / Follow-up
+--------------------------------------------------------------------------------
+
+To make the pipeline state fully consistent, the following would be ideal after
+all runs finish:
+
+  1. Re-finalize the tournament directory so it also contains:
+     - ratings.csv
+     - matchup_summary.csv
+     - metadata.json
+
+  2. Ensure the code comments in run_experiments.py match the actual tournament
+     agent set used to produce results/tournament/game_records.csv.
+
+  3. Keep results/ as the canonical report folder and treat experiment_runs/ as
+     older auxiliary output unless there is a reason to preserve both paths.
+
+================================================================================
+End of Current Experiments Documentation
+================================================================================
