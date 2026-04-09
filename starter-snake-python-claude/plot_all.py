@@ -36,6 +36,12 @@ matplotlib.use("Agg")   # non-interactive, works without a display
 import matplotlib.pyplot as plt
 import numpy as np
 
+try:
+    import trueskill
+    _TRUESKILL_AVAILABLE = True
+except ImportError:
+    _TRUESKILL_AVAILABLE = False
+
 # ---------------------------------------------------------------------------
 # Path setup
 # ---------------------------------------------------------------------------
@@ -56,6 +62,14 @@ AGENT_COLORS: Dict[str, str] = {
     "MCTS-UCB1Tuned":   "#EF4444",
     "MCTS-All":         "#22C55E",
 }
+
+TOURNAMENT_AGENTS = ["Random", "Heuristic", "MCTS-Vanilla", "MCTS-All"]
+HEURISTIC_COMPARISON_AGENTS = [
+    "MCTS-All",
+    "MCTS-Opponent",
+    "MCTS-Vanilla",
+    "MCTS-HeurRollout",
+]
 
 matplotlib.rcParams.update({
     "figure.facecolor":  "white",
@@ -86,6 +100,26 @@ def _load_csv(path: str) -> List[dict]:
         return []
     with open(path, newline="") as f:
         return list(csv.DictReader(f))
+
+
+def _filter_records_to_agents(records: List[dict], allowed_agents: List[str]) -> List[dict]:
+    allowed = set(allowed_agents)
+    return [
+        rec for rec in records
+        if rec["agent_a"] in allowed and rec["agent_b"] in allowed
+    ]
+
+
+def _filter_heuristic_matchups(records: List[dict], variants: List[str]) -> List[dict]:
+    allowed = set(variants)
+    filtered = []
+    for rec in records:
+        a, b = rec["agent_a"], rec["agent_b"]
+        if a == "Heuristic" and b in allowed:
+            filtered.append(rec)
+        elif b == "Heuristic" and a in allowed:
+            filtered.append(rec)
+    return filtered
 
 
 def _ensure_plots_dir(results_dir: str) -> str:
@@ -134,6 +168,96 @@ def _wilson_ci(wins: int, n: int, z: float = 1.96) -> Tuple[float, float]:
 def _elo_update(ea: float, eb: float, score_a: float, k: float = 32.0):
     exp_a = 1.0 / (1.0 + 10.0 ** ((eb - ea) / 400.0))
     return ea + k * (score_a - exp_a), eb + k * ((1 - score_a) - (1 - exp_a))
+
+
+def _compute_ratings_rows(records: List[dict], agent_names: List[str]) -> List[dict]:
+    elo: Dict[str, float] = {name: 1500.0 for name in agent_names}
+    ts_env = trueskill.TrueSkill() if _TRUESKILL_AVAILABLE else None
+    ts = {name: ts_env.create_rating() for name in agent_names} if ts_env else {}
+
+    sorted_records = sorted(records, key=lambda r: (r["agent_a"], r["agent_b"], int(r["seed"])))
+    for rec in sorted_records:
+        a, b = rec["agent_a"], rec["agent_b"]
+        if a not in elo or b not in elo:
+            continue
+        score_a = float(rec["score_a"])
+        elo[a], elo[b] = _elo_update(elo[a], elo[b], score_a)
+
+        if ts_env:
+            if score_a == 1.0:
+                ts[a], ts[b] = trueskill.rate_1vs1(ts[a], ts[b])
+            elif score_a == 0.0:
+                ts[b], ts[a] = trueskill.rate_1vs1(ts[b], ts[a])
+            else:
+                ts[a], ts[b] = trueskill.rate_1vs1(ts[a], ts[b], drawn=True)
+
+    rows = []
+    for name in sorted(agent_names, key=lambda n: -elo[n]):
+        if ts_env:
+            mu = ts[name].mu
+            sigma = ts[name].sigma
+            conservative = mu - 3.0 * sigma
+        else:
+            mu = sigma = conservative = 0.0
+        rows.append({
+            "agent": name,
+            "elo": round(elo[name], 2),
+            "ts_mu": round(mu, 4),
+            "ts_sigma": round(sigma, 4),
+            "ts_conservative": round(conservative, 4),
+        })
+    return rows
+
+
+def _write_csv(path: str, rows: List[dict], fieldnames: List[str]) -> None:
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def _write_matchup_summary(path: str, records: List[dict]) -> None:
+    summary: Dict[Tuple[str, str], dict] = defaultdict(lambda: {
+        "games": 0, "wins_a": 0.0,
+        "turns": [], "survival_a": [], "survival_b": [],
+        "length_a": [], "length_b": [],
+    })
+    for rec in records:
+        key = (rec["agent_a"], rec["agent_b"])
+        row = summary[key]
+        row["games"] += 1
+        row["wins_a"] += float(rec["score_a"])
+        row["turns"].append(float(rec["turns"]))
+        row["survival_a"].append(float(rec["turns_survived_a"]))
+        row["survival_b"].append(float(rec["turns_survived_b"]))
+        row["length_a"].append(float(rec["final_length_a"]))
+        row["length_b"].append(float(rec["final_length_b"]))
+
+    rows = []
+    for (agent_a, agent_b), row in sorted(summary.items()):
+        games = row["games"]
+        wins_a = row["wins_a"]
+        rows.append({
+            "agent_a": agent_a,
+            "agent_b": agent_b,
+            "games": games,
+            "wins_a": round(wins_a, 3),
+            "wins_b": round(games - wins_a, 3),
+            "win_rate_a": round(wins_a / games, 4) if games else 0.0,
+            "win_rate_b": round((games - wins_a) / games, 4) if games else 0.0,
+            "avg_turns": round(sum(row["turns"]) / games, 3) if games else 0.0,
+            "avg_survival_a": round(sum(row["survival_a"]) / games, 3) if games else 0.0,
+            "avg_survival_b": round(sum(row["survival_b"]) / games, 3) if games else 0.0,
+            "avg_final_length_a": round(sum(row["length_a"]) / games, 3) if games else 0.0,
+            "avg_final_length_b": round(sum(row["length_b"]) / games, 3) if games else 0.0,
+        })
+    _write_csv(path, rows, [
+        "agent_a", "agent_b", "games",
+        "wins_a", "wins_b", "win_rate_a", "win_rate_b",
+        "avg_turns", "avg_survival_a", "avg_survival_b",
+        "avg_final_length_a", "avg_final_length_b",
+    ])
 
 
 # ---------------------------------------------------------------------------
@@ -324,11 +448,9 @@ def plot_mcts_vs_heuristic(records: List[dict], plots_dir: str) -> None:
     For each MCTS agent, show win rate vs Heuristic with 95% Wilson CI.
     Answers: 'What do you notice compared to the Heuristic baseline?'
     """
+    records = _filter_heuristic_matchups(records, HEURISTIC_COMPARISON_AGENTS)
     all_agents = {rec["agent_a"] for rec in records} | {rec["agent_b"] for rec in records}
-    mcts_agents = sorted(
-        [a for a in all_agents if a.startswith("MCTS")],
-        key=lambda a: a,
-    )
+    mcts_agents = [a for a in HEURISTIC_COMPARISON_AGENTS if a in all_agents]
     if not mcts_agents:
         print("  [SKIP] mcts_vs_heuristic — no MCTS agents found")
         return
@@ -352,7 +474,7 @@ def plot_mcts_vs_heuristic(records: List[dict], plots_dir: str) -> None:
         print("  [SKIP] mcts_vs_heuristic — no Heuristic matchups found")
         return
 
-    agents_sorted = sorted(results, key=lambda a: -results[a][0] / results[a][1])
+    agents_sorted = [a for a in HEURISTIC_COMPARISON_AGENTS if a in results]
     rates  = [results[a][0] / results[a][1]  for a in agents_sorted]
     counts = [results[a][1]                  for a in agents_sorted]
     lo_ci  = [_wilson_ci(results[a][0], results[a][1])[0] for a in agents_sorted]
@@ -368,7 +490,7 @@ def plot_mcts_vs_heuristic(records: List[dict], plots_dir: str) -> None:
     ax.axhline(0.5, color="gray", linestyle="--", linewidth=1.5, label="50% (even matchup)")
     ax.set_ylim(0, 1.1)
     ax.set_ylabel("Win Rate vs Heuristic")
-    ax.set_title("MCTS Variants vs Heuristic Baseline  (95% Wilson CI)")
+    ax.set_title("Selected MCTS Variants vs Heuristic  (95% Wilson CI)")
     ax.tick_params(axis="x", rotation=35)
     for bar, rate, n in zip(bars, rates, counts):
         ax.text(
@@ -580,28 +702,39 @@ SWEEPS_CONFIG = [
 
 def plot_tournament_section(tournament_dir: str) -> None:
     records_path = os.path.join(tournament_dir, "game_records.csv")
-    ratings_path = os.path.join(tournament_dir, "ratings.csv")
-
     records = _load_csv(records_path)
-    ratings = _load_csv(ratings_path)
 
     if not records:
         print(f"  [WARN] No tournament game records at {records_path}")
         print("         Run:  python run_experiments.py --mode tournament")
         return
 
+    core_records = _filter_records_to_agents(records, TOURNAMENT_AGENTS)
+    if not core_records:
+        print(f"  [WARN] No core tournament records found in {records_path}")
+        return
+
+    ratings = _compute_ratings_rows(core_records, TOURNAMENT_AGENTS)
+
     plots_dir = _ensure_plots_dir(tournament_dir)
-    n_records = len(records)
-    n_agents  = len({rec["agent_a"] for rec in records} | {rec["agent_b"] for rec in records})
-    print(f"  Loaded {n_records} game records, {n_agents} agents")
+    n_records = len(core_records)
+    n_agents  = len({rec["agent_a"] for rec in core_records} | {rec["agent_b"] for rec in core_records})
+    print(f"  Loaded {n_records} core tournament records, {n_agents} agents")
     print(f"  Plots → {plots_dir}/")
 
-    plot_win_rates(records,       plots_dir, " — Tournament")
+    _write_csv(
+        os.path.join(tournament_dir, "ratings.csv"),
+        ratings,
+        ["agent", "elo", "ts_mu", "ts_sigma", "ts_conservative"],
+    )
+    _write_matchup_summary(os.path.join(tournament_dir, "matchup_summary.csv"), core_records)
+
+    plot_win_rates(core_records,       plots_dir, " — Tournament")
     plot_elo_ratings(ratings,     plots_dir)
-    plot_survival_boxplot(records, plots_dir)
-    plot_win_matrix(records,      plots_dir)
+    plot_survival_boxplot(core_records, plots_dir)
+    plot_win_matrix(core_records,      plots_dir)
     plot_mcts_vs_heuristic(records, plots_dir)
-    plot_elo_progression(records,  plots_dir)
+    plot_elo_progression(core_records,  plots_dir)
 
 
 def main() -> None:

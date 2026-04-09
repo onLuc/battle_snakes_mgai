@@ -97,6 +97,14 @@ MCTS_ALL_VARIANTS = [
     "MCTS-All",
 ]
 
+# Only these Heuristic-vs-MCTS matchups are used in the final report plots.
+REPORT_HEURISTIC_VARIANTS = [
+    "MCTS-All",
+    "MCTS-Vanilla",
+    "MCTS-Opponent",
+    "MCTS-HeurRollout",
+]
+
 # Hyperparameter sweep definitions (no lambdas — must be picklable)
 HYPERPARAMETER_SWEEPS = [
     {
@@ -247,7 +255,7 @@ def compute_ratings(records: List[dict], agent_names: List[str]) -> Dict[str, An
     }
 
 
-def save_ratings(results_dir: str, ratings: Dict, agent_names: List[str]) -> None:
+def save_ratings(results_dir: str, ratings: Dict, agent_names: List[str], filename: str = "ratings.csv") -> None:
     """Write ratings.csv to results_dir."""
     os.makedirs(results_dir, exist_ok=True)
     elo = ratings["elo"]
@@ -256,7 +264,7 @@ def save_ratings(results_dir: str, ratings: Dict, agent_names: List[str]) -> Non
     ts_sigma = ratings.get("ts_sigma", {})
 
     sorted_names = sorted(agent_names, key=lambda n: -elo.get(n, 0.0))
-    path = os.path.join(results_dir, "ratings.csv")
+    path = os.path.join(results_dir, filename)
     with open(path, "w", newline="") as f:
         writer = csv.DictWriter(
             f, fieldnames=["agent", "elo", "ts_mu", "ts_sigma", "ts_conservative"]
@@ -273,13 +281,17 @@ def save_ratings(results_dir: str, ratings: Dict, agent_names: List[str]) -> Non
     print(f"  [saved] {path}")
 
 
-def write_matchup_summary(results_dir: str) -> None:
-    """Aggregate per-matchup stats from game_records.csv → matchup_summary.csv."""
-    records_path = os.path.join(results_dir, "game_records.csv")
-    if not os.path.exists(records_path):
-        return
-
-    records = load_records(records_path)
+def write_matchup_summary(
+    results_dir: str,
+    records: Optional[List[dict]] = None,
+    filename: str = "matchup_summary.csv",
+) -> None:
+    """Aggregate per-matchup stats into a summary CSV."""
+    if records is None:
+        records_path = os.path.join(results_dir, "game_records.csv")
+        if not os.path.exists(records_path):
+            return
+        records = load_records(records_path)
     summary: Dict[Tuple, dict] = defaultdict(lambda: {
         "games": 0, "wins_a": 0.0,
         "turns": [], "survival_a": [], "survival_b": [],
@@ -297,7 +309,7 @@ def write_matchup_summary(results_dir: str) -> None:
         row["length_a"].append(float(rec["final_length_a"]))
         row["length_b"].append(float(rec["final_length_b"]))
 
-    out_path = os.path.join(results_dir, "matchup_summary.csv")
+    out_path = os.path.join(results_dir, filename)
     fieldnames = [
         "agent_a", "agent_b", "games",
         "wins_a", "wins_b", "win_rate_a", "win_rate_b",
@@ -325,6 +337,53 @@ def write_matchup_summary(results_dir: str) -> None:
                 "avg_final_length_b":   round(sum(row["length_b"]) / g, 3) if g else 0,
             })
     print(f"  [saved] {out_path}")
+
+
+def filter_records_to_agents(records: List[dict], allowed_agents: List[str]) -> List[dict]:
+    allowed = set(allowed_agents)
+    return [
+        rec for rec in records
+        if rec["agent_a"] in allowed and rec["agent_b"] in allowed
+    ]
+
+
+def filter_heuristic_records(records: List[dict], variants: List[str]) -> List[dict]:
+    allowed = set(variants)
+    out = []
+    for rec in records:
+        a, b = rec["agent_a"], rec["agent_b"]
+        if a == "Heuristic" and b in allowed:
+            out.append(rec)
+        elif b == "Heuristic" and a in allowed:
+            out.append(rec)
+    return out
+
+
+def finalize_tournament_outputs(results_dir: str) -> None:
+    """
+    Recompute tournament-facing ratings.csv and matchup_summary.csv using only the
+    four-agent core tournament, even if additional Heuristic ablation games are
+    stored in the same game_records.csv file.
+    """
+    records_path = os.path.join(results_dir, "game_records.csv")
+    all_records = load_records(records_path)
+    core_records = filter_records_to_agents(all_records, TOURNAMENT_AGENTS)
+    if not core_records:
+        return
+    ratings = compute_ratings(core_records, TOURNAMENT_AGENTS)
+    save_ratings(results_dir, ratings, TOURNAMENT_AGENTS, filename="ratings.csv")
+    write_matchup_summary(results_dir, core_records, filename="matchup_summary.csv")
+
+    ladder_records = filter_heuristic_records(all_records, REPORT_HEURISTIC_VARIANTS)
+    if ladder_records:
+        ladder_agents = ["Heuristic"] + [a for a in REPORT_HEURISTIC_VARIANTS if a in {
+            rec["agent_a"] for rec in ladder_records
+        } | {
+            rec["agent_b"] for rec in ladder_records
+        }]
+        ladder_ratings = compute_ratings(ladder_records, ladder_agents)
+        save_ratings(results_dir, ladder_ratings, ladder_agents, filename="vs_heuristic_ratings.csv")
+        write_matchup_summary(results_dir, ladder_records, filename="vs_heuristic_matchup_summary.csv")
 
 
 def save_metadata(
@@ -484,7 +543,8 @@ def run_tournament(
     agent_names = [s.name for s in agent_specs]
     ratings = compute_ratings(all_records, agent_names)
     save_ratings(results_dir, ratings, agent_names)
-    write_matchup_summary(results_dir)
+    write_matchup_summary(results_dir, all_records, filename="all_matchup_summary.csv")
+    finalize_tournament_outputs(results_dir)
     save_metadata(results_dir, agent_specs, seeds, iterations, max_turns,
                   extra={"experiment": "tournament"})
 
@@ -754,8 +814,9 @@ def run_vs_heuristic(
         {rec["agent_a"] for rec in all_records} | {rec["agent_b"] for rec in all_records}
     )
     ratings = compute_ratings(all_records, all_agent_names)
-    save_ratings(results_dir, ratings, all_agent_names)
-    write_matchup_summary(results_dir)
+    save_ratings(results_dir, ratings, all_agent_names, filename="all_ratings.csv")
+    write_matchup_summary(results_dir, all_records, filename="all_matchup_summary.csv")
+    finalize_tournament_outputs(results_dir)
 
     print(f"\n  Done. {len(all_records)} total records in {records_path}")
     _print_console_summary(all_records, ratings)
